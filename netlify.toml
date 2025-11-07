@@ -1,0 +1,12 @@
+[build]
+  # This command navigates to your frontend, installs dependencies, and runs the build.
+  command = "cd Frontend-app && npm install && npm run build" 
+
+  # This tells Netlify to publish the files from the 'dist' folder inside your frontend app.
+  publish = "Frontend-app/dist" 
+
+# This is the crucial part that fixes the 404/Page Not Found error for internal React routes.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
