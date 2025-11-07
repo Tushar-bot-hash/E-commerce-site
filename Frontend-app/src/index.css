@@ -5,12 +5,12 @@
 @tailwind utilities;
 
 @layer base {
- body {
- @apply bg-gray-50 text-gray-900;
- background-image: 
- radial-gradient(circle at 20% 50%, rgba(225, 29, 72, 0.03) 0%, transparent 50%),
- radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.03) 0%, transparent 50%),
- radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+  body {
+@apply bg-gray-50 text-gray-900;
+background-image: 
+      radial-gradient(circle at 20% 50%, rgba(225, 29, 72, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
 background-attachment: fixed;
 }
 }
@@ -21,30 +21,30 @@ background-attachment: fixed;
 @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
-.btn-primary {
+  .btn-primary {
 @apply bg-primary-600 text-white hover:bg-primary-700 active:scale-95;
 }
 
   .btn-secondary {
- @apply bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95;
+@apply bg-gray-200 text-gray-800 hover:bg-gray-300 active:scale-95;
 }
 
- .btn-outline {
+  .btn-outline {
 @apply border-2 border-primary-600 text-primary-600 hover:bg-primary-50 active:scale-95;
 }
 
   /* Input Styles */
-.input {
+  .input {
 @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
 }
 
   /* Card Styles */
   .card {
-@apply bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow;
+ @apply bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow;
 }
 
   /* Container */
-  .container-custom {
+.container-custom {
 @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
 }
 
@@ -67,27 +67,27 @@ background-attachment: fixed;
 }
 
   .badge-warning {
-@apply bg-yellow-100 text-yellow-800;
+ @apply bg-yellow-100 text-yellow-800;
 }
 
   .badge-danger {
-@apply bg-red-100 text-red-800;
+ @apply bg-red-100 text-red-800;
 }
 
   .badge-info {
-@apply bg-blue-100 text-blue-800;
+ @apply bg-blue-100 text-blue-800;
 }
 
   /* Loading Spinner */
   .spinner {
-@apply inline-block w-6 h-6 border-4 border-gray-200 border-t-primary-600 rounded-full animate-spin;
+ @apply inline-block w-6 h-6 border-4 border-gray-200 border-t-primary-600 rounded-full animate-spin;
 }
-}
+
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-width: 8px;
-height: 8px;
+ width: 8px;
+ height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -106,12 +106,14 @@ background: #555;
 /* Animations */
 @keyframes shimmer {
   0% {
-    background-position: -1000px 0;
-  }
+ background-position: -1000px 0;
+}
   100% {
-    background-position: 1000px 0;
-  }
-}.skeleton {
+ background-position: 1000px 0;
+}
+}
+
+.skeleton {
 animation: shimmer 2s infinite;
 background: linear-gradient(to right, #f0f0f0 4%, #e0e0e0 25%, #f0f0f0 36%);
 background-size: 1000px 100%;
@@ -136,10 +138,10 @@ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
 .bg-hero-pattern {
 background-color: #1a1a2e;
-background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23e11d48' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23e11d48' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E"); /* ADDED SEMICOLON HERE */
+background-position: 0 0;
 }
 
-/* Additional visible patterns */
 .bg-dots-pattern {
 background-color: #ffffff;
 background-image: radial-gradient(#e11d48 0.5px, transparent 0.5px), radial-gradient(#e11d48 0.5px, #ffffff 0.5px);
