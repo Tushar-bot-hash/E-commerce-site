@@ -11,8 +11,7 @@ function App() {
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-grow">
-        {/* Outlet renders the specific page content (Home, Cart, AdminDashboard, etc.) 
-            that was matched by the router in index.jsx */}
+        
         <Outlet /> 
       </main>
       <Footer />
