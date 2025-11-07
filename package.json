@@ -1,0 +1,20 @@
+{
+  "name": "anime-site-fullstack",
+  "version": "1.0.0",
+  "description": "Full-stack project deployment for Render.",
+  "main": "backend-app/server.js",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "start": "node backend-app/server.js",
+    "render-build": "npm install && (cd frontend-app && npm install && npm run build) && (cd backend-app && npm install)"
+  },
+  "keywords": [
+    "render",
+    "fullstack",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC"
+}
