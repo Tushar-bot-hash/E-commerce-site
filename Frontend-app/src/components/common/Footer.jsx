@@ -52,17 +52,22 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Newsletter */}
+          {/* Newsletter - RESPONSIVE FIX APPLIED HERE */}
           <div>
             <h4 className="text-lg font-semibold text-white mb-4">Newsletter</h4>
             <p className="text-sm mb-4">Subscribe to get special offers and updates!</p>
-            <div className="flex">
+            {/* FIX: Use flex-col (vertical stack) by default, and switch to flex-row (horizontal) on 'sm' breakpoint and up. */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-0">
               <input
                 type="email"
                 placeholder="Your email"
-                className="px-4 py-2 rounded-l-lg flex-1 text-gray-900 focus:outline-none"
+                // w-full makes it fill the container when stacked. Added responsive rounding.
+                className="px-4 py-2 w-full rounded-lg sm:rounded-r-none sm:rounded-l-lg flex-1 text-gray-900 focus:outline-none"
               />
-              <button className="bg-primary-600 px-4 py-2 rounded-r-lg hover:bg-primary-700 transition">
+              <button 
+                // w-full makes it fill the container when stacked, sm:w-auto lets it shrink on desktop. Adjusted responsive rounding.
+                className="bg-primary-600 w-full sm:w-auto px-4 py-2 rounded-lg sm:rounded-l-none sm:rounded-r-lg hover:bg-primary-700 transition whitespace-nowrap"
+              >
                 Subscribe
               </button>
             </div>

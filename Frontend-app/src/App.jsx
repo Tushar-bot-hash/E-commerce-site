@@ -24,9 +24,9 @@ import OrderManagement from './pages/admin/OrderManagement';
 import UserManagement from './pages/admin/UserManagement';
 
 function App() {
-  return (
-    <Router>
-      {/* CRITICAL FIX: Ensures the main container doesn't cause horizontal scroll on mobile. */}
+return (
+ <Router>
+      {/* CRITICAL FIX: Ensures the main container doesn't cause horizontal scroll on mobile. */}
       <div className="flex flex-col min-h-screen overflow-x-hidden w-screen">
         <Navbar />
         <main className="flex-grow">
