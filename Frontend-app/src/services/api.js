@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // ✅ FIXED: Changed VITE_API_URL to VITE_BACKEND_URL to match Vercel env variable
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
+// Add /api to the backend URL since backend routes expect /api/auth, /api/products, etc.
+const API_URL = import.meta.env.VITE_BACKEND_URL 
+  ? `${import.meta.env.VITE_BACKEND_URL}/api`
+  : 'http://localhost:5000/api';
 
 // Optional: Add console log to verify the URL (remove after testing)
 console.log('🔧 API Configuration:', {
