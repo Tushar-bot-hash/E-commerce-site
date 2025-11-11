@@ -18,7 +18,7 @@ connectDB();
 const app = express();
 
 // =========================================================================
-// 🚀 SIMPLIFIED CORS FIX - REMOVED CREDENTIALS CONFLICT
+// 🚀 COMPREHENSIVE CORS FIX
 // =========================================================================
 
 // List of allowed origins
@@ -31,32 +31,50 @@ const allowedOrigins = [
     'http://localhost:5000'
 ];
 
-// ✅ SIMPLIFIED CORS CONFIGURATION
-app.use(cors({
-    origin: allowedOrigins,
+// CORS configuration
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Check if the origin is in the allowed list
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            // Allow all origins temporarily for debugging - remove in production
+            console.log(`Allowing origin: ${origin}`);
+            callback(null, true);
+            
+            // For production, use this instead:
+            // callback(new Error(`CORS not allowed for origin: ${origin}`));
+        }
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
-}));
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
 // =========================================================================
-// 🛠️ ENHANCED MANUAL CORS HEADERS
+// 🛠️ MANUAL CORS HEADERS AS FALLBACK
 // =========================================================================
 
 // Add manual CORS headers as a fallback
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     
-    // Set CORS headers for all responses
-    if (origin && allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin)) {
         res.header('Access-Control-Allow-Origin', origin);
     }
     
+    res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
     
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
-        console.log('✅ Handling OPTIONS preflight request from:', origin);
         return res.status(200).end();
     }
     
@@ -66,10 +84,6 @@ app.use((req, res, next) => {
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// =========================================================================
-// 🧪 TEST ROUTES FOR PAYMENT DEBUGGING
-// =========================================================================
 
 // Test route to verify CORS is working
 app.get('/', (req, res) => {
@@ -91,35 +105,6 @@ app.get('/api/cors-test', (req, res) => {
     });
 });
 
-// 🆕 Payment test endpoint
-app.get('/api/payment/test', (req, res) => {
-    console.log('💰 Payment test endpoint hit from:', req.headers.origin);
-    res.json({
-        message: 'Payment endpoint is working!',
-        status: 'success',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// 🆕 Simple payment session endpoint for testing
-app.post('/api/payment/simple-test', (req, res) => {
-    console.log('💰 Simple payment test:', {
-        origin: req.headers.origin,
-        body: req.body
-    });
-    
-    res.json({
-        success: true,
-        message: 'Payment test successful',
-        testData: req.body,
-        timestamp: new Date().toISOString()
-    });
-});
-
-// =========================================================================
-// 🛣️ API ROUTES
-// =========================================================================
-
 // API Routes
 app.use('/api/auth', require('./src/routes/auth'));
 app.use('/api/products', require('./src/routes/products'));
@@ -128,44 +113,33 @@ app.use('/api/orders', require('./src/routes/orders'));
 app.use('/api/admin', require('./src/routes/admin'));
 app.use('/api/payment', require('./src/routes/payment'));
 
-// =========================================================================
-// 🚨 ERROR HANDLING WITH CORS
-// =========================================================================
-
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('❌ Server Error:', err);
+    console.error('Error:', err);
     
     // Ensure CORS headers are set even on errors
     const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin)) {
         res.header('Access-Control-Allow-Origin', origin);
     }
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.header('Access-Control-Allow-Credentials', 'true');
     
     const statusCode = err.statusCode || 500;
     res.status(statusCode).json({
         message: err.message,
-        stack: process.env.NODE_ENV === 'production' ? null : err.stack,
-        timestamp: new Date().toISOString()
+        stack: process.env.NODE_ENV === 'production' ? null : err.stack
     });
 });
 
 // Handle 404 - with CORS headers
 app.use((req, res) => {
     const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin)) {
         res.header('Access-Control-Allow-Origin', origin);
     }
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.header('Access-Control-Allow-Credentials', 'true');
     
-    res.status(404).json({ 
-        message: 'Route not found',
-        path: req.path,
-        timestamp: new Date().toISOString()
-    });
+    res.status(404).json({ message: 'Route not found' });
 });
 
 // Start server
@@ -174,8 +148,5 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
     console.log(`✅ CORS is configured for the following origins:`);
     allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
-    console.log(`📝 Test endpoints:`);
-    console.log(`   - CORS Test: https://anime-api-backend-u42d.onrender.com/api/cors-test`);
-    console.log(`   - Payment Test: https://anime-api-backend-u42d.onrender.com/api/payment/test`);
-    console.log(`   - Simple Payment Test: https://anime-api-backend-u42d.onrender.com/api/payment/simple-test`);
-});
+    console.log(`📝 Test CORS by visiting: http://localhost:${PORT}/api/cors-test`);
+});   
