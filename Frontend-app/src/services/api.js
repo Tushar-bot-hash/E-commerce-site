@@ -1,14 +1,12 @@
 import axios from 'axios';
 
-// ✅ FIXED: Changed VITE_API_URL to VITE_BACKEND_URL to match Vercel env variable
-// Add /api to the backend URL since backend routes expect /api/auth, /api/products, etc.
-const API_URL = import.meta.env.VITE_BACKEND_URL 
-  ? `${import.meta.env.VITE_BACKEND_URL}/api`
-  : 'http://localhost:5000/api';
+// 🚨 TEMPORARY FIX: Directly use your Render backend URL
+// This will fix the CORS issues immediately
+const API_URL = 'https://anime-api-backend-u42d.onrender.com/api';
 
 // Optional: Add console log to verify the URL (remove after testing)
 console.log('🔧 API Configuration:', {
-  envVariable: import.meta.env.VITE_BACKEND_URL,
+  envVariable: 'Using direct Render URL (temporary fix)',
   finalURL: API_URL,
   mode: import.meta.env.MODE
 });
