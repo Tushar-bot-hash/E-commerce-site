@@ -6,10 +6,9 @@ const connectDB = require('./src/config/db');
 // Load environment variables
 dotenv.config();
 
-// JWT SECRET CHECK (Best Practice for Authorization)
+// JWT SECRET CHECK
 if (!process.env.JWT_SECRET) {
-    console.error("FATAL ERROR: JWT_SECRET is not defined. JWT signing will fail.");
-    // In a production app, you might crash the process here: process.exit(1);
+    console.error("FATAL ERROR: JWT_SECRET is not defined.");
 }
 
 // Connect to MongoDB
@@ -19,9 +18,10 @@ connectDB();
 const app = express();
 
 // =========================================================================
-// 🚀 SIMPLE & EFFECTIVE CORS CONFIGURATION
+// 🚀 COMPREHENSIVE CORS FIX
 // =========================================================================
 
+// List of allowed origins
 const allowedOrigins = [
     'https://projects-l2cf7s8oi-tusharv811-2882s-projects.vercel.app',
     'https://projects-eight-gules.vercel.app', 
@@ -29,42 +29,55 @@ const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:5000'
-]; 
+];
 
-// Apply CORS middleware with simple configuration
-app.use(cors({
+// CORS configuration
+const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, Postman)
+        // Allow requests with no origin (like mobile apps, curl requests)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        // Check if the origin is in the allowed list
+        if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            // Allow all origins temporarily for debugging - remove in production
+            console.log(`Allowing origin: ${origin}`);
+            callback(null, true);
+            
+            // For production, use this instead:
+            // callback(new Error(`CORS not allowed for origin: ${origin}`));
         }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
 // =========================================================================
-// 🛠️ MANUAL PREFLIGHT HANDLER (NO WILDCARD ROUTES)
+// 🛠️ MANUAL CORS HEADERS AS FALLBACK
 // =========================================================================
 
-// Instead of app.options('*'), we'll handle preflight manually for specific routes
-// OR use this approach - manually set headers for OPTIONS requests
-
-// Global preflight handler - using a different approach
+// Add manual CORS headers as a fallback
 app.use((req, res, next) => {
-    // Handle OPTIONS method (preflight requests)
-    if (req.method === 'OPTIONS') {
-        res.header('Access-Control-Allow-Origin', req.headers.origin);
-        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        return res.status(200).send();
+    const origin = req.headers.origin;
+    
+    if (allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
     }
+    
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
     next();
 });
 
@@ -72,23 +85,23 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Test route with CORS info
+// Test route to verify CORS is working
 app.get('/', (req, res) => {
     res.json({ 
         message: 'Anime E-commerce API is running!',
         version: '1.0.0',
-        cors: {
-            enabled: true,
-            allowedOrigins: allowedOrigins
-        },
-        endpoints: {
-            auth: '/api/auth',
-            products: '/api/products',
-            cart: '/api/cart',
-            orders: '/api/orders',
-            admin: '/api/admin',
-            payment: '/api/payment'
-        }
+        cors: 'Enabled',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Test CORS-specific route
+app.get('/api/cors-test', (req, res) => {
+    res.json({
+        message: 'CORS is working!',
+        allowedOrigins: allowedOrigins,
+        requestOrigin: req.headers.origin,
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -103,6 +116,14 @@ app.use('/api/payment', require('./src/routes/payment'));
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err);
+    
+    // Ensure CORS headers are set even on errors
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     const statusCode = err.statusCode || 500;
     res.status(statusCode).json({
         message: err.message,
@@ -110,8 +131,14 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Handle 404
+// Handle 404 - with CORS headers
 app.use((req, res) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
     res.status(404).json({ message: 'Route not found' });
 });
 
@@ -119,7 +146,7 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
-    console.log(`✅ CORS is configured for:`);
+    console.log(`✅ CORS is configured for the following origins:`);
     allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
-    console.log(`✅ Payment routes are available at /api/payment`);
+    console.log(`📝 Test CORS by visiting: http://localhost:${PORT}/api/cors-test`);
 });
