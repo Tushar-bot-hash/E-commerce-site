@@ -20,7 +20,8 @@ export default function Checkout() {
 
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => {
-      const price = item.price || 0;
+      // Use the safe logic for price calculation
+      const price = item.price || item.product?.price || 0;
       return total + (price * item.quantity);
     }, 0);
   };
@@ -49,10 +50,15 @@ export default function Checkout() {
         return;
       }
 
+      // 🚨 FIX APPLIED HERE: Including price and name in the payload 🚨
       const checkoutPayload = {
         cartItems: cartItems.map(item => ({
           productId: item.product?._id || item.productId,
-          quantity: item.quantity
+          quantity: item.quantity,
+          // CRITICAL: Send the unit price so the backend can calculate line_items
+          price: item.price || item.product?.price || 0,
+          // Optional but recommended: Send the name for Stripe's product data
+          name: item.name || item.product?.name || 'Unknown Item',
         })),
         totalAmount: calculateTotal(),
       };
@@ -75,7 +81,8 @@ export default function Checkout() {
       if (response.ok && data.url) {
         window.location.href = data.url;
       } else {
-        toast.error(data.message || 'Payment session creation failed');
+        // Data.message will now contain the specific error from Stripe (if any)
+        toast.error(data.message || 'Payment session creation failed'); 
       }
     } catch (err) {
       console.error('Checkout error:', err);
@@ -161,7 +168,7 @@ export default function Checkout() {
                           </div>
                           <div className="text-right">
                             <p className="text-purple-400 font-bold text-xl">
-                              ${(productPrice * quantity).toFixed(2)}
+                              {(productPrice * quantity).toFixed(2)}
                             </p>
                           </div>
                         </div>
