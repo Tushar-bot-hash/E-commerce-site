@@ -8,7 +8,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // Add this for better asset handling
+    assetsDir: 'assets',
   },
-  // Add this for proper Vercel deployment
-  base: './',
+  base: '/', // Change this from './' to '/'
 })
