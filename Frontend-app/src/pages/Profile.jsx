@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, Phone, Lock, MapPin } from 'lucide-react';
+import { User, Mail, Phone, Lock } from 'lucide-react';
 import useAuthStore from '../store/authStore';
-import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
@@ -18,15 +17,6 @@ const Profile = () => {
   const [passwordData, setPasswordData] = useState({
     password: '',
     confirmPassword: ''
-  });
-
-  const [newAddress, setNewAddress] = useState({
-    street: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    phone: '',
-    isDefault: false
   });
 
   useEffect(() => {
@@ -68,40 +58,7 @@ const Profile = () => {
     
     if (result.success) {
       setPasswordData({ password: '', confirmPassword: '' });
-    }
-  };
-
-  const handleAddAddress = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await authAPI.addAddress(newAddress);
-      toast.success('Address added successfully');
-      await getProfile();
-      setNewAddress({
-        street: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        phone: '',
-        isDefault: false
-      });
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to add address');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteAddress = async (addressId) => {
-    if (!window.confirm('Delete this address?')) return;
-    
-    try {
-      await authAPI.deleteAddress(addressId);
-      toast.success('Address deleted');
-      await getProfile();
-    } catch (error) {
-      toast.error('Failed to delete address');
+      toast.success('Password updated successfully');
     }
   };
 
@@ -139,14 +96,6 @@ const Profile = () => {
                 >
                   Change Password
                 </button>
-                <button
-                  onClick={() => setActiveTab('addresses')}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition ${
-                    activeTab === 'addresses' ? 'bg-primary-50 text-primary-600 font-semibold' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  Addresses
-                </button>
               </div>
             </div>
           </div>
@@ -167,21 +116,24 @@ const Profile = () => {
                         value={profileData.name}
                         onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                         className="input pl-10"
+                        placeholder="Enter your full name"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">Email (Cannot be changed)</label>
+                    <label className="block text-sm font-medium mb-2">Email Address</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                       <input
                         type="email"
                         value={user?.email}
                         disabled
-                        className="input pl-10 bg-gray-100"
+                        className="input pl-10 bg-gray-100 cursor-not-allowed"
+                        placeholder="Your email address"
                       />
                     </div>
+                    <p className="text-sm text-gray-500 mt-1">Email cannot be changed</p>
                   </div>
 
                   <div>
@@ -193,11 +145,16 @@ const Profile = () => {
                         value={profileData.phone}
                         onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                         className="input pl-10"
+                        placeholder="Your phone number"
                       />
                     </div>
                   </div>
 
-                  <button type="submit" disabled={loading} className="btn btn-primary">
+                  <button 
+                    type="submit" 
+                    disabled={loading} 
+                    className="btn btn-primary w-full sm:w-auto"
+                  >
                     {loading ? 'Updating...' : 'Update Profile'}
                   </button>
                 </form>
@@ -218,7 +175,8 @@ const Profile = () => {
                         value={passwordData.password}
                         onChange={(e) => setPasswordData({ ...passwordData, password: e.target.value })}
                         className="input pl-10"
-                        placeholder="••••••••"
+                        placeholder="Enter new password"
+                        minLength={6}
                       />
                     </div>
                   </div>
@@ -232,117 +190,20 @@ const Profile = () => {
                         value={passwordData.confirmPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                         className="input pl-10"
-                        placeholder="••••••••"
+                        placeholder="Confirm new password"
+                        minLength={6}
                       />
                     </div>
                   </div>
 
-                  <button type="submit" disabled={loading} className="btn btn-primary">
+                  <button 
+                    type="submit" 
+                    disabled={loading} 
+                    className="btn btn-primary w-full sm:w-auto"
+                  >
                     {loading ? 'Updating...' : 'Update Password'}
                   </button>
                 </form>
-              </div>
-            )}
-
-            {/* Addresses Tab */}
-            {activeTab === 'addresses' && (
-              <div className="space-y-6">
-                {/* Existing Addresses */}
-                <div className="card">
-                  <h2 className="text-xl font-bold mb-4">Saved Addresses</h2>
-                  {user?.addresses?.length > 0 ? (
-                    <div className="space-y-4">
-                      {user.addresses.map((address) => (
-                        <div key={address._id} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center">
-                              <MapPin size={20} className="text-gray-600 mr-2" />
-                              {address.isDefault && (
-                                <span className="badge badge-success text-xs mr-2">Default</span>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleDeleteAddress(address._id)}
-                              className="text-red-600 text-sm hover:underline"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                          <p className="text-gray-900">{address.street}</p>
-                          <p className="text-gray-600 text-sm">
-                            {address.city}, {address.state} - {address.zipCode}
-                          </p>
-                          <p className="text-gray-600 text-sm">Phone: {address.phone}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-600">No saved addresses</p>
-                  )}
-                </div>
-
-                {/* Add New Address */}
-                <div className="card">
-                  <h2 className="text-xl font-bold mb-4">Add New Address</h2>
-                  <form onSubmit={handleAddAddress} className="space-y-4">
-                    <input
-                      type="text"
-                      placeholder="Street Address"
-                      value={newAddress.street}
-                      onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
-                      className="input"
-                      required
-                    />
-                    <div className="grid grid-cols-2 gap-4">
-                      <input
-                        type="text"
-                        placeholder="City"
-                        value={newAddress.city}
-                        onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                        className="input"
-                        required
-                      />
-                      <input
-                        type="text"
-                        placeholder="State"
-                        value={newAddress.state}
-                        onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
-                        className="input"
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input
-                        type="text"
-                        placeholder="ZIP Code"
-                        value={newAddress.zipCode}
-                        onChange={(e) => setNewAddress({ ...newAddress, zipCode: e.target.value })}
-                        className="input"
-                        required
-                      />
-                      <input
-                        type="tel"
-                        placeholder="Phone"
-                        value={newAddress.phone}
-                        onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
-                        className="input"
-                        required
-                      />
-                    </div>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={newAddress.isDefault}
-                        onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
-                        className="mr-2"
-                      />
-                      Set as default address
-                    </label>
-                    <button type="submit" disabled={loading} className="btn btn-primary">
-                      {loading ? 'Adding...' : 'Add Address'}
-                    </button>
-                  </form>
-                </div>
               </div>
             )}
           </div>

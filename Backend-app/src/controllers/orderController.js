@@ -170,14 +170,23 @@ exports.cancelOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Check if order belongs to user
+    // Check if order belongs to user - FIXED: Compare ObjectIds directly
     if (order.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to cancel this order' });
     }
 
-    // Can only cancel if not shipped
+    // Can only cancel if not shipped or delivered
     if (order.orderStatus === 'shipped' || order.orderStatus === 'delivered') {
-      return res.status(400).json({ message: 'Cannot cancel order that has been shipped' });
+      return res.status(400).json({ 
+        message: 'Cannot cancel order that has been shipped or delivered' 
+      });
+    }
+
+    // Check if already cancelled
+    if (order.orderStatus === 'cancelled') {
+      return res.status(400).json({ 
+        message: 'Order is already cancelled' 
+      });
     }
 
     // Restore stock
@@ -185,22 +194,76 @@ exports.cancelOrder = async (req, res) => {
       const product = await Product.findById(item.product);
       if (product) {
         product.stock += item.quantity;
-        product.sold -= item.quantity;
+        product.sold = Math.max(0, product.sold - item.quantity); // Prevent negative sold count
         await product.save();
       }
     }
 
     order.orderStatus = 'cancelled';
-    await order.save();
+    const updatedOrder = await order.save();
 
     res.status(200).json({
       success: true,
       message: 'Order cancelled successfully',
-      order
+      order: updatedOrder
     });
   } catch (error) {
     console.error('Cancel order error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error while cancelling order', 
+      error: error.message 
+    });
+  }
+};
+
+// @desc    Delete order
+// @route   DELETE /api/orders/:id
+// @access  Private
+exports.deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Check if order belongs to user
+    if (order.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to delete this order' });
+    }
+
+    // Can only delete cancelled or delivered orders
+    if (order.orderStatus !== 'cancelled' && order.orderStatus !== 'delivered') {
+      return res.status(400).json({ 
+        message: 'Can only delete cancelled or delivered orders' 
+      });
+    }
+
+    // Restore stock if order was delivered (cancelled orders already restored stock)
+    if (order.orderStatus === 'delivered') {
+      for (let item of order.orderItems) {
+        const product = await Product.findById(item.product);
+        if (product) {
+          product.stock += item.quantity;
+          product.sold = Math.max(0, product.sold - item.quantity);
+          await product.save();
+        }
+      }
+    }
+
+    // Delete the order
+    await Order.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Order deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    res.status(500).json({ 
+      message: 'Server error while deleting order', 
+      error: error.message 
+    });
   }
 };
 

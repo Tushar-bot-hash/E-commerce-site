@@ -6,10 +6,11 @@ const useCartStore = create((set, get) => ({
   cart: null,
   loading: false,
   cartCount: 0,
+  error: null,
 
-  // Fetch cart
+  // Fetch cart with better error handling
   fetchCart: async () => {
-    set({ loading: true });
+    set({ loading: true, error: null });
     try {
       const response = await cartAPI.getCart();
       const cart = response.data.cart;
@@ -19,8 +20,19 @@ const useCartStore = create((set, get) => ({
         loading: false 
       });
     } catch (error) {
-      set({ loading: false });
       console.error('Fetch cart error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to load cart';
+      set({ 
+        loading: false, 
+        error: errorMessage,
+        cart: null,
+        cartCount: 0
+      });
+      
+      // Only show toast for non-auth errors
+      if (error.response?.status !== 401) {
+        toast.error(errorMessage);
+      }
     }
   },
 
@@ -31,14 +43,16 @@ const useCartStore = create((set, get) => ({
       const cart = response.data.cart;
       set({ 
         cart,
-        cartCount: cart.items.reduce((total, item) => total + item.quantity, 0)
+        cartCount: cart.items.reduce((total, item) => total + item.quantity, 0),
+        error: null
       });
       toast.success('Added to cart!');
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to add to cart';
+      set({ error: message });
       toast.error(message);
-      return { success: false };
+      return { success: false, error: message };
     }
   },
 
@@ -49,14 +63,22 @@ const useCartStore = create((set, get) => ({
       const cart = response.data.cart;
       set({ 
         cart,
-        cartCount: cart.items.reduce((total, item) => total + item.quantity, 0)
+        cartCount: cart.items.reduce((total, item) => total + item.quantity, 0),
+        error: null
       });
-      toast.success('Cart updated');
+      
+      if (quantity === 0) {
+        toast.success('Item removed from cart');
+      } else {
+        toast.success('Cart updated');
+      }
+      
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to update cart';
+      set({ error: message });
       toast.error(message);
-      return { success: false };
+      return { success: false, error: message };
     }
   },
 
@@ -67,13 +89,16 @@ const useCartStore = create((set, get) => ({
       const cart = response.data.cart;
       set({ 
         cart,
-        cartCount: cart.items.reduce((total, item) => total + item.quantity, 0)
+        cartCount: cart.items.reduce((total, item) => total + item.quantity, 0),
+        error: null
       });
       toast.success('Item removed from cart');
       return { success: true };
     } catch (error) {
-      toast.error('Failed to remove item');
-      return { success: false };
+      const message = error.response?.data?.message || 'Failed to remove item';
+      set({ error: message });
+      toast.error(message);
+      return { success: false, error: message };
     }
   },
 
@@ -81,14 +106,32 @@ const useCartStore = create((set, get) => ({
   clearCart: async () => {
     try {
       await cartAPI.clearCart();
-      set({ cart: { items: [], totalPrice: 0 }, cartCount: 0 });
+      set({ 
+        cart: { items: [], totalPrice: 0 }, 
+        cartCount: 0,
+        error: null 
+      });
       toast.success('Cart cleared');
       return { success: true };
     } catch (error) {
-      toast.error('Failed to clear cart');
-      return { success: false };
+      const message = error.response?.data?.message || 'Failed to clear cart';
+      set({ error: message });
+      toast.error(message);
+      return { success: false, error: message };
     }
   },
+
+  // Get cart total price
+  getCartTotal: () => {
+    const cart = get().cart;
+    return cart?.totalPrice || 0;
+  },
+
+  // Check if cart is empty
+  isCartEmpty: () => {
+    const cart = get().cart;
+    return !cart || !cart.items || cart.items.length === 0;
+  }
 }));
 
 export default useCartStore;

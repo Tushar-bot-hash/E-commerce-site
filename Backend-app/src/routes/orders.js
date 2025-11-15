@@ -8,6 +8,7 @@ const {
   getOrderById,
   updateOrderToPaid,
   cancelOrder,
+  deleteOrder,
   getAllOrders,
   updateOrderStatus
 } = require('../controllers/orderController');
@@ -18,6 +19,7 @@ router.get('/myorders', protect, getMyOrders);
 router.get('/:id', protect, getOrderById);
 router.put('/:id/pay', protect, updateOrderToPaid);
 router.put('/:id/cancel', protect, cancelOrder);
+router.delete('/:id', protect, deleteOrder); // NEW: Delete order route
 
 // Admin routes
 router.get('/', protect, admin, getAllOrders);

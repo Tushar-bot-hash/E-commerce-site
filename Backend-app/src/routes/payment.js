@@ -1,159 +1,262 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const stripe = require('stripe');
+const stripe = require("stripe");
+const { protect } = require("../middleware/auth");
 
-// =========================================================================
-// 1. TOP-LEVEL DEPENDENCY REQUIREMENTS (Fail-Fast Approach)
-// =========================================================================
+const Order = require("../models/Order");
 
-// Destructure the 'protect' function from your auth.js middleware
-const { protect } = require('../middleware/auth'); 
-const Order = require('../models/Order');
-const Cart = require('../models/Cart');
-
-// =========================================================================
-// 2. STRIPE INITIALIZATION (Configuration Check)
-// =========================================================================
-
+// ========================
+// STRIPE INIT
+// ========================
 let stripeInstance;
 if (process.env.STRIPE_SECRET_KEY) {
-    stripeInstance = stripe(process.env.STRIPE_SECRET_KEY);
-    console.log('✅ Stripe initialized successfully.');
+  stripeInstance = stripe(process.env.STRIPE_SECRET_KEY);
+  console.log("✅ Stripe initialized.");
 } else {
-    console.error('❌ FATAL: STRIPE_SECRET_KEY is not defined. Payment routes are disabled.');
+  console.error("❌ STRIPE_SECRET_KEY missing!");
 }
 
-// =========================================================================
-// 3. ROUTES
-// =========================================================================
-
-// @route   GET /api/payment/test
-// @desc    Test route - checks if Stripe is configured
-// @access  Public
-router.get('/test', (req, res) => {
-    console.log('✅ Payment test route hit!');
-    res.json({ 
-        success: true, 
-        message: 'Payment routes are working!',
-        stripeConfigured: !!stripeInstance,
-    });
+// ========================
+// TEST ROUTE
+// ========================
+router.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Payment API working",
+    stripeConfigured: !!stripeInstance,
+    timestamp: new Date().toISOString()
+  });
 });
 
-// @route   POST /api/payment/create-checkout-session
-// @desc    Create Stripe checkout session
-// @access  Private (using the correct 'protect' middleware)
-router.post('/create-checkout-session', protect, async (req, res) => {
-    
-    try {
-        // --- 3a. Initial Checks ---
-        if (!stripeInstance) {
-            return res.status(500).json({
-                message: 'Payment service not configured',
-                error: 'STRIPE_SECRET_KEY is missing on the server.'
-            });
-        }
+// ========================
+// CREATE CHECKOUT SESSION (Option 1 - No Stripe Shipping)
+// ========================
+router.post("/create-checkout-session", protect, async (req, res) => {
+  try {
+    if (!stripeInstance) {
+      return res.status(500).json({ message: "Stripe not configured" });
+    }
 
-        console.log('Create checkout session initiated by user:', req.user._id);
-        
-        const { cartItems, totalAmount } = req.body;
-        const userId = req.user._id; 
-        const userEmail = req.user.email || 'guest@example.com'; 
+    const { items, shippingInfo, shippingMethod, totalAmount } = req.body;
 
-        // --- 3b. Line Items Generation ---
-        if (!cartItems || cartItems.length === 0) {
-            return res.status(400).json({ message: 'Cart items cannot be empty.' });
-        }
-        
-        const lineItems = cartItems.map(item => {
-            const price = item.price; // We now expect this from the fixed frontend payload
-            const quantity = item.quantity;
+    // Validate input
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "Items array is required and cannot be empty" });
+    }
 
-            // 🚨 ADDED ROBUSTNESS CHECK 🚨
-            if (typeof price !== 'number' || price <= 0 || typeof quantity !== 'number' || quantity <= 0) {
-                console.error('Invalid item data causing Stripe rejection:', item);
-                throw new Error('Invalid price or quantity for a cart item received.');
-            }
+    // Validate shipping info
+    if (!shippingInfo || !shippingInfo.firstName || !shippingInfo.address) {
+      return res.status(400).json({ message: "Shipping information is required" });
+    }
 
-            // Stripe amounts must be in CENTS (or the smallest currency unit).
-            const unitAmountInCents = Math.round(price * 100); 
+    console.log("📦 Using form shipping info:", shippingInfo);
 
-            return {
-                price_data: {
-                    currency: 'usd', 
-                    product_data: {
-                        name: item.name, // We expect this to be sent now
-                        images: item.image ? [item.image] : undefined,
-                    },
-                    unit_amount: unitAmountInCents, 
-                },
-                quantity: quantity,
-            };
-        });
-        
-        // 🚀 CRITICAL DEBUGGING STEP 🚀
-        // Log the final line items array to debug the 400 error
-        console.log('Line Items for Stripe (DEBUG):', JSON.stringify(lineItems, null, 2));
+    // Calculate prices based on your Order model structure
+    const itemsPrice = items.reduce((total, item) => total + (item.price * item.quantity), 0);
+    const taxPrice = itemsPrice * 0.1; // 10% tax
+    const shippingPrice = shippingMethod === 'express' ? 10 : 5;
+    const totalPrice = itemsPrice + taxPrice + shippingPrice;
 
+    // Build Stripe line items
+    const lineItems = items.map((item) => ({
+      price_data: {
+        currency: "inr",
+        product_data: {
+          name: item.name,
+          description: `Product ID: ${item.productId}`,
+          // images: item.image ? [item.image] : [],
+        },
+        unit_amount: Math.round(item.price * 100), // INR → paise
+      },
+      quantity: item.quantity,
+    }));
 
-        // --- 3c. Stripe Session Creation ---
-        const session = await stripeInstance.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: lineItems,
-            mode: 'payment',
-            customer_email: userEmail, 
-            
-            success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart`,
-            
-            metadata: {
-                userId: userId.toString(), 
-            }
-        });
+    console.log("🛒 Stripe Line Items:", lineItems);
 
-        console.log(`✅ Stripe session created: ${session.id}`);
+    // Use proper URLs with http:// or https:// scheme
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    
+    const successUrl = `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${frontendUrl}/checkout`;
 
-        // --- 3d. Success Response ---
-        res.json({ 
-            sessionId: session.id,
-            url: session.url,
-            message: 'Checkout session created successfully.'
-        });
+    console.log("🔗 Success URL:", successUrl);
+    console.log("🔗 Cancel URL:", cancelUrl);
 
-    } catch (error) {
-        // --- 3e. Robust Error Handling ---
-        console.error('Stripe checkout error:', error);
-        
-        res.status(500).json({ 
-            message: 'Payment session creation failed',
-            error: error.message,
-            stripeCode: error.code || null 
-        });
-    }
+    // Create Stripe session - WITHOUT shipping collection
+    const session = await stripeInstance.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: lineItems,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      customer_email: req.user.email,
+      metadata: {
+        userId: req.user._id.toString(),
+        items: JSON.stringify(items),
+        shippingInfo: JSON.stringify(shippingInfo), // Use form shipping data
+        shippingMethod: shippingMethod || 'standard',
+        itemsPrice: itemsPrice,
+        taxPrice: taxPrice,
+        shippingPrice: shippingPrice,
+        totalPrice: totalPrice
+      },
+      // 🚨 REMOVED: shipping_address_collection
+      // Customers will only see payment page, not shipping form
+    });
+
+    console.log("✅ Stripe Session Created:", session.id);
+
+    res.json({
+      success: true,
+      id: session.id,
+      url: session.url,
+      sessionId: session.id
+    });
+
+  } catch (err) {
+    console.error("❌ Stripe Session Creation Error:", err);
+    res.status(500).json({ 
+      message: "Payment session creation failed", 
+      error: err.message 
+    });
+  }
 });
 
-// @route   GET /api/payment/verify/:sessionId
-// @desc    Verify payment status after redirect (A basic check, webhooks are better)
-// @access  Private 
-router.get('/verify/:sessionId', protect, async (req, res) => {
-    try {
-        if (!stripeInstance) {
-            return res.status(500).json({ message: 'Payment service not configured' });
-        }
+// ========================
+// VERIFY PAYMENT SESSION (Updated for Option 1)
+// ========================
+router.get("/verify/:sessionId", protect, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
 
-        const sessionId = req.params.sessionId;
-        const session = await stripeInstance.checkout.sessions.retrieve(sessionId);
+    if (!stripeInstance) {
+      return res.status(500).json({ message: "Stripe not configured" });
+    }
 
-        if (session.payment_status === 'paid') {
-            // You would typically update the Order model here
-            res.json({ status: 'paid', orderId: session.metadata.orderId || 'N/A' });
-        } else {
-            res.status(400).json({ status: session.payment_status });
-        }
+    console.log("🔍 Verifying payment for session:", sessionId);
 
-    } catch (error) {
-        console.error('Payment verification error:', error);
-        res.status(500).json({ message: 'Verification failed', error: error.message });
-    }
+    // Retrieve session from Stripe
+    const session = await stripeInstance.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items', 'customer']
+    });
+
+    console.log("💰 Stripe Session Status:", session.payment_status);
+
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment not completed or still processing'
+      });
+    }
+
+    // Parse metadata from Stripe session
+    const metadata = session.metadata;
+    const items = metadata.items ? JSON.parse(metadata.items) : [];
+    const shippingInfo = metadata.shippingInfo ? JSON.parse(metadata.shippingInfo) : {};
+    const userId = metadata.userId;
+
+    console.log("📦 Creating order with form shipping info");
+
+    // Check if order already exists to avoid duplicates
+    let order = await Order.findOne({ "paymentResult.id": sessionId });
+    
+    if (!order) {
+      // Format shipping address from FORM data (not Stripe)
+      const formattedShippingAddress = {
+        street: shippingInfo.address || '',
+        city: shippingInfo.city || '',
+        state: shippingInfo.state || '',
+        zipCode: shippingInfo.zipCode || '',
+        country: shippingInfo.country || 'India',
+        phone: shippingInfo.phone || ''
+      };
+
+      // Format order items
+      const orderItems = items.map(item => ({
+        product: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image || 'https://via.placeholder.com/150'
+      }));
+
+      // Create new order using FORM shipping data
+      const orderData = {
+        user: userId,
+        orderItems: orderItems,
+        shippingAddress: formattedShippingAddress,
+        paymentMethod: 'card',
+        paymentResult: {
+          id: sessionId,
+          status: session.payment_status,
+          update_time: new Date().toISOString(),
+          email_address: session.customer_details?.email || shippingInfo.email
+        },
+        itemsPrice: parseFloat(metadata.itemsPrice) || 0,
+        taxPrice: parseFloat(metadata.taxPrice) || 0,
+        shippingPrice: parseFloat(metadata.shippingPrice) || 0,
+        totalPrice: parseFloat(metadata.totalPrice) || (session.amount_total / 100),
+        isPaid: true,
+        paidAt: new Date(),
+        orderStatus: 'processing'
+      };
+
+      order = new Order(orderData);
+      await order.save();
+      console.log("✅ Order created with form shipping data:", order._id);
+    } else {
+      console.log("✅ Order already exists:", order._id);
+    }
+
+    // Populate the order for response
+    await order.populate('user', 'name email');
+    await order.populate('orderItems.product', 'name images');
+
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      order: order
+    });
+
+  } catch (err) {
+    console.error("❌ Payment verification error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Payment verification failed",
+      error: err.message
+    });
+  }
+});
+
+// ========================
+// GET SESSION STATUS
+// ========================
+router.get("/session-status/:sessionId", protect, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (!stripeInstance) {
+      return res.status(500).json({ message: "Stripe not configured" });
+    }
+
+    const session = await stripeInstance.checkout.sessions.retrieve(sessionId);
+
+    res.json({
+      id: session.id,
+      status: session.status,
+      payment_status: session.payment_status,
+      customer_email: session.customer_details?.email,
+      amount_total: session.amount_total ? session.amount_total / 100 : 0,
+      currency: session.currency
+    });
+
+  } catch (err) {
+    console.error("Session status error:", err);
+    res.status(500).json({ 
+      message: "Failed to get session status", 
+      error: err.message 
+    });
+  }
 });
 
 module.exports = router;
