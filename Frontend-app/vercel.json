@@ -1,12 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "cd Frontend-app && npm run build",
+  "buildCommand": "cd Frontend-app && npm install && npm run build",
   "outputDirectory": "Frontend-app/dist",
   "routes": [
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
     {
       "src": "/(.*)",
       "dest": "/index.html"
