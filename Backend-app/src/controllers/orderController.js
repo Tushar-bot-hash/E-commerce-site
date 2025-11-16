@@ -269,19 +269,42 @@ exports.deleteOrder = async (req, res) => {
 
 // ADMIN ROUTES
 
-// @desc    Get all orders
+// @desc    Get all orders - FIXED: Now properly populates product images
 // @route   GET /api/orders
 // @access  Private/Admin
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find({})
       .populate('user', 'name email')
+      .populate('orderItems.product', 'name images') // ✅ FIX: Populate product images
       .sort('-createdAt');
+
+    // ✅ ENSURE orderItems have proper image data
+    const ordersWithImages = orders.map(order => {
+      const orderObj = order.toObject();
+      
+      return {
+        ...orderObj,
+        orderItems: orderObj.orderItems.map(item => {
+          // Use the populated product image or fallback to stored image
+          const productImage = item.product?.images?.[0];
+          const storedImage = item.image;
+          
+          return {
+            ...item,
+            // Priority: populated product image > stored image > placeholder
+            image: productImage || storedImage || '/images/placeholder-product.jpg',
+            // Ensure name is properly set
+            name: item.name || item.product?.name || 'Unknown Product'
+          };
+        })
+      };
+    });
 
     res.status(200).json({
       success: true,
       count: orders.length,
-      orders
+      orders: ordersWithImages // ✅ Send orders with proper images
     });
   } catch (error) {
     console.error('Get all orders error:', error);

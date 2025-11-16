@@ -20,67 +20,64 @@ const app = express();
 // List of allowed origins
 const allowedOrigins = [
     'https://projects-l2cf7s8oi-tusharv811-2882s-projects.vercel.app',
-    'https://projects-lemon-eight.vercel.app/', 
+    'https://projects-lemon-eight.vercel.app',
     'https://anime-api-backend-u42d.onrender.com', 
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:5000'
 ];
 
-// CORS configuration
+// CORS configuration - SIMPLIFIED
 const corsOptions = {
     origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman, server-to-server)
         if (!origin) return callback(null, true);
+        
         if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.log(`Allowing origin: ${origin}`);
-            callback(null, true);
+            console.log(`🚫 Blocked by CORS: ${origin}`);
+            callback(new Error(`Not allowed by CORS: ${origin}`), false);
         }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    optionsSuccessStatus: 200
 };
 
-// Apply CORS middleware
+// Apply CORS middleware - THIS HANDLES PREFLIGHT AUTOMATICALLY
 app.use(cors(corsOptions));
 
-// Manual CORS headers as fallback
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
-    }
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-    
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    next();
-});
+// REMOVE THIS LINE - it's causing the error
+// app.options('*', cors(corsOptions));
+
+// REMOVE the manual CORS middleware - it's redundant with cors package
+// Keep only the essential middleware:
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Routes
+// Health check route with CORS test
 app.get('/', (req, res) => {
     res.json({ 
         message: 'Anime E-commerce API is running!',
         version: '1.0.0',
         cors: 'Enabled',
+        allowedOrigins: allowedOrigins,
+        requestOrigin: req.headers.origin,
         timestamp: new Date().toISOString()
     });
 });
 
+// Enhanced CORS test endpoint
 app.get('/api/cors-test', (req, res) => {
     res.json({
         message: 'CORS is working!',
         allowedOrigins: allowedOrigins,
         requestOrigin: req.headers.origin,
+        isOriginAllowed: allowedOrigins.includes(req.headers.origin),
         timestamp: new Date().toISOString()
     });
 });
@@ -94,17 +91,23 @@ app.use('/api/admin', require('./src/routes/admin'));
 app.use('/api/payment', require('./src/routes/payment'));
 app.use('/api/reviews', require('./src/routes/review'));
 
-// Error handling
+// Enhanced error handling
 app.use((err, req, res, next) => {
     console.error('Error:', err);
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
+    
+    // Handle CORS errors specifically
+    if (err.message.includes('CORS')) {
+        return res.status(403).json({
+            success: false,
+            message: 'CORS Error: Origin not allowed',
+            allowedOrigins: allowedOrigins,
+            yourOrigin: req.headers.origin
+        });
     }
-    res.header('Access-Control-Allow-Credentials', 'true');
     
     const statusCode = err.statusCode || 500;
     res.status(statusCode).json({
+        success: false,
         message: err.message,
         stack: process.env.NODE_ENV === 'production' ? null : err.stack
     });
@@ -112,12 +115,11 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin);
-    }
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.status(404).json({ message: 'Route not found' });
+    res.status(404).json({ 
+        success: false,
+        message: 'Route not found',
+        path: req.path 
+    });
 });
 
 // Start server
@@ -126,4 +128,5 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
     console.log(`✅ CORS is configured for the following origins:`);
     allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
+    console.log(`🌐 Test CORS: https://anime-api-backend-u42d.onrender.com/api/cors-test`);
 });
