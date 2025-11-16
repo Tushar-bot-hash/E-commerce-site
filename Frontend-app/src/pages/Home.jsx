@@ -4,15 +4,15 @@ import { ArrowRight, TrendingUp, Truck, Shield, HeadphonesIcon } from 'lucide-re
 import { productAPI } from '../services/api';
 import ProductCard from '../components/product/ProductCard';
 import Loading from '../components/common/Loading';
+import useAuthStore from '../store/authStore'; // Import your auth store
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated } = useAuthStore(); // Use Zustand store
 
   useEffect(() => {
     fetchFeaturedProducts();
-    checkAuthStatus();
   }, []);
 
   const fetchFeaturedProducts = async () => {
@@ -23,19 +23,6 @@ const Home = () => {
       console.error('Error fetching featured products:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkAuthStatus = () => {
-    // Check if user is logged in
-    // This could be from localStorage, context, Redux, or an API call
-    const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('user');
-    
-    if (token && user) {
-      setIsLoggedIn(true);
-    } else {
-      setIsLoggedIn(false);
     }
   };
 
@@ -148,7 +135,7 @@ const Home = () => {
       </section>
 
       {/* CTA Section - Only show if user is NOT logged in */}
-      {!isLoggedIn && (
+      {!isAuthenticated && (
         <section className="bg-primary-600 text-white py-16">
           <div className="container-custom text-center">
             <h2 className="text-4xl font-display font-bold mb-4">
