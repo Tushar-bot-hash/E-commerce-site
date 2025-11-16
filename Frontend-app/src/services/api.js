@@ -99,6 +99,35 @@ export const paymentAPI = {
   testPayment: () => api.get('/payment/test'),
 };
 
+// Review API
+export const reviewAPI = {
+  // Get reviews for a product
+  getProductReviews: (productId, page = 1, limit = 10) => 
+    api.get(`/reviews/product/${productId}?page=${page}&limit=${limit}`),
+  
+  // Get user's reviews
+  getUserReviews: (page = 1, limit = 10) => 
+    api.get(`/reviews/user?page=${page}&limit=${limit}`),
+  
+  // Create a new review
+  createReview: (data) => api.post('/reviews', data),
+  
+  // Update a review
+  updateReview: (reviewId, data) => api.put(`/reviews/${reviewId}`, data),
+  
+  // Delete a review
+  deleteReview: (reviewId) => api.delete(`/reviews/${reviewId}`),
+  
+  // Mark review as helpful
+  markHelpful: (reviewId) => api.post(`/reviews/${reviewId}/helpful`),
+  
+  // Check if user can review a product (has purchased it)
+  canReviewProduct: (productId) => api.get(`/reviews/can-review/${productId}`),
+  
+  // Get review statistics for a product
+  getReviewStats: (productId) => api.get(`/reviews/stats/${productId}`),
+};
+
 // Admin API
 export const adminAPI = {
   getStats: () => api.get('/admin/stats'),

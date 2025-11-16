@@ -112,6 +112,7 @@ app.use('/api/cart', require('./src/routes/cart'));
 app.use('/api/orders', require('./src/routes/orders'));
 app.use('/api/admin', require('./src/routes/admin'));
 app.use('/api/payment', require('./src/routes/payment'));
+app.use('/api/reviews', require('./src/routes/reviews')); // ✅ ADDED REVIEWS ROUTES
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -149,4 +150,5 @@ app.listen(PORT, () => {
     console.log(`✅ CORS is configured for the following origins:`);
     allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
     console.log(`📝 Test CORS by visiting: http://localhost:${PORT}/api/cors-test`);
-});   
+    console.log(`⭐ Review API available at: http://localhost:${PORT}/api/reviews`);
+});
