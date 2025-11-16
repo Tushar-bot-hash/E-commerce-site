@@ -317,7 +317,7 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
         <button
@@ -328,7 +328,7 @@ export default function Checkout() {
           Back to Cart
         </button>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Left Column - Shipping & Billing Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Saved Addresses Section */}
@@ -341,7 +341,7 @@ export default function Checkout() {
                   </h2>
                 </div>
                 
-                <div className="p-6 space-y-4">
+                <div className="p-4 sm:p-6 space-y-4">
                   {savedAddresses.map((address) => (
                     <label 
                       key={address._id}
@@ -387,7 +387,7 @@ export default function Checkout() {
               </div>
             )}
 
-            {/* Shipping Information */}
+            {/* Shipping Information - UPDATED FOR MOBILE */}
             <div className="bg-black/40 backdrop-blur-lg rounded-2xl border border-purple-500/30 shadow-2xl overflow-hidden">
               <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
                 <h2 className="text-xl font-bold text-white flex items-center gap-3">
@@ -396,8 +396,10 @@ export default function Checkout() {
                 </h2>
               </div>
               
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+              {/* Single column layout for mobile, two columns for larger screens */}
+              <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                {/* First Name */}
+                <div className="md:col-span-1">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     First Name *
                   </label>
@@ -406,7 +408,7 @@ export default function Checkout() {
                     name="firstName"
                     value={formData.firstName}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.firstName ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="Enter your first name"
@@ -416,7 +418,8 @@ export default function Checkout() {
                   )}
                 </div>
                 
-                <div>
+                {/* Last Name */}
+                <div className="md:col-span-1">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     Last Name *
                   </label>
@@ -425,7 +428,7 @@ export default function Checkout() {
                     name="lastName"
                     value={formData.lastName}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.lastName ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="Enter your last name"
@@ -435,6 +438,7 @@ export default function Checkout() {
                   )}
                 </div>
                 
+                {/* Email - Full width */}
                 <div className="md:col-span-2">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     Email Address *
@@ -444,7 +448,7 @@ export default function Checkout() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.email ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="your.email@example.com"
@@ -454,6 +458,7 @@ export default function Checkout() {
                   )}
                 </div>
                 
+                {/* Phone - Full width */}
                 <div className="md:col-span-2">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     Phone Number *
@@ -463,7 +468,7 @@ export default function Checkout() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.phone ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="10-digit mobile number"
@@ -473,6 +478,7 @@ export default function Checkout() {
                   )}
                 </div>
                 
+                {/* Address - Full width */}
                 <div className="md:col-span-2">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     Street Address *
@@ -482,7 +488,7 @@ export default function Checkout() {
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.address ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="House number, street name"
@@ -492,7 +498,8 @@ export default function Checkout() {
                   )}
                 </div>
                 
-                <div>
+                {/* City */}
+                <div className="md:col-span-1">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     City *
                   </label>
@@ -501,7 +508,7 @@ export default function Checkout() {
                     name="city"
                     value={formData.city}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.city ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="Your city"
@@ -511,7 +518,8 @@ export default function Checkout() {
                   )}
                 </div>
                 
-                <div>
+                {/* State */}
+                <div className="md:col-span-1">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     State *
                   </label>
@@ -520,7 +528,7 @@ export default function Checkout() {
                     name="state"
                     value={formData.state}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.state ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="Your state"
@@ -530,7 +538,8 @@ export default function Checkout() {
                   )}
                 </div>
                 
-                <div>
+                {/* ZIP Code */}
+                <div className="md:col-span-1">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     ZIP Code *
                   </label>
@@ -539,7 +548,7 @@ export default function Checkout() {
                     name="zipCode"
                     value={formData.zipCode}
                     onChange={handleInputChange}
-                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none ${
+                    className={`w-full bg-black/30 border rounded-lg px-4 py-3 text-white focus:outline-none min-h-[44px] text-base ${
                       formErrors.zipCode ? 'border-red-500' : 'border-purple-500/30 focus:border-purple-500'
                     }`}
                     placeholder="6-digit pincode"
@@ -549,7 +558,8 @@ export default function Checkout() {
                   )}
                 </div>
                 
-                <div>
+                {/* Country */}
+                <div className="md:col-span-1">
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     Country
                   </label>
@@ -558,12 +568,12 @@ export default function Checkout() {
                     name="country"
                     value={formData.country}
                     onChange={handleInputChange}
-                    className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                    className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none min-h-[44px] text-base"
                     disabled
                   />
                 </div>
 
-                {/* Save Shipping Info Checkbox */}
+                {/* Save Shipping Info Checkbox - Full width */}
                 <div className="md:col-span-2 pt-4 border-t border-purple-500/30">
                   <label className="flex items-start space-x-3 cursor-pointer">
                     <input
@@ -592,7 +602,7 @@ export default function Checkout() {
                 <h2 className="text-xl font-bold text-white">Shipping Method</h2>
               </div>
               
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <label className="flex items-center space-x-3 cursor-pointer p-4 rounded-lg border border-purple-500/30 hover:border-purple-500/50 transition">
                   <input
                     type="radio"
@@ -635,7 +645,7 @@ export default function Checkout() {
                 <h2 className="text-xl font-bold text-white">Order Summary</h2>
               </div>
 
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {/* Cart Items */}
                 <div className="space-y-4 mb-6">
                   <h3 className="text-lg font-medium text-white mb-3">Items in Cart</h3>
@@ -693,7 +703,7 @@ export default function Checkout() {
                 <button
                   onClick={handleCheckout}
                   disabled={checkoutLoading || cartItems.length === 0}
-                  className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg"
+                  className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 shadow-lg min-h-[52px]"
                 >
                   {checkoutLoading ? (
                     <>
@@ -737,17 +747,17 @@ export default function Checkout() {
                 name="street"
                 value={newAddress.street}
                 onChange={handleNewAddressInput}
-                className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none min-h-[44px] text-base"
                 placeholder="Street Address"
                 required
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input
                   type="text"
                   name="city"
                   value={newAddress.city}
                   onChange={handleNewAddressInput}
-                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none min-h-[44px] text-base"
                   placeholder="City"
                   required
                 />
@@ -756,18 +766,18 @@ export default function Checkout() {
                   name="state"
                   value={newAddress.state}
                   onChange={handleNewAddressInput}
-                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none min-h-[44px] text-base"
                   placeholder="State"
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input
                   type="text"
                   name="zipCode"
                   value={newAddress.zipCode}
                   onChange={handleNewAddressInput}
-                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none min-h-[44px] text-base"
                   placeholder="ZIP Code"
                   required
                 />
@@ -776,7 +786,7 @@ export default function Checkout() {
                   name="phone"
                   value={newAddress.phone}
                   onChange={handleNewAddressInput}
-                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full bg-black/30 border border-purple-500/30 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none min-h-[44px] text-base"
                   placeholder="Phone"
                   required
                 />
