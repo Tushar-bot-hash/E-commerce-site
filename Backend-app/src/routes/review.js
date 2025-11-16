@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Review = require('../models/Review');
+const Product = require('../models/Product');
 const Order = require('../models/Order');
-const auth = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
 // Get reviews for a product
 router.get('/product/:productId', async (req, res) => {
@@ -34,7 +35,7 @@ router.get('/product/:productId', async (req, res) => {
 });
 
 // Get user's reviews
-router.get('/user', auth, async (req, res) => {
+router.get('/user', protect, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -62,7 +63,7 @@ router.get('/user', auth, async (req, res) => {
 });
 
 // Create a review
-router.post('/', auth, async (req, res) => {
+router.post('/', protect, async (req, res) => {
   try {
     const { product, rating, comment, images } = req.body;
 
@@ -95,6 +96,9 @@ router.post('/', auth, async (req, res) => {
     await review.save();
     await review.populate('user', 'name email');
 
+    // Update product rating
+    await Product.updateProductRating(product);
+
     res.status(201).json({ 
       review,
       message: 'Review submitted successfully!'
@@ -109,7 +113,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update a review
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', protect, async (req, res) => {
   try {
     const { rating, comment, images } = req.body;
     
@@ -129,6 +133,9 @@ router.put('/:id', auth, async (req, res) => {
     await review.save();
     await review.populate('user', 'name email');
 
+    // Update product rating
+    await Product.updateProductRating(review.product);
+
     res.json({ 
       review,
       message: 'Review updated successfully!'
@@ -140,7 +147,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // Delete a review
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', protect, async (req, res) => {
   try {
     const review = await Review.findOne({
       _id: req.params.id,
@@ -151,7 +158,11 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Review not found' });
     }
 
+    const productId = review.product;
     await Review.findByIdAndDelete(req.params.id);
+
+    // Update product rating
+    await Product.updateProductRating(productId);
 
     res.json({ message: 'Review deleted successfully' });
   } catch (error) {
@@ -161,7 +172,7 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // Mark review as helpful
-router.post('/:id/helpful', auth, async (req, res) => {
+router.post('/:id/helpful', protect, async (req, res) => {
   try {
     const review = await Review.findByIdAndUpdate(
       req.params.id,
@@ -184,7 +195,7 @@ router.post('/:id/helpful', auth, async (req, res) => {
 });
 
 // Check if user can review a product
-router.get('/can-review/:productId', auth, async (req, res) => {
+router.get('/can-review/:productId', protect, async (req, res) => {
   try {
     // Check if user already reviewed
     const existingReview = await Review.findOne({
