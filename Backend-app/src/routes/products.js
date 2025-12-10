@@ -22,7 +22,7 @@ router.get('/featured', getFeaturedProducts);
 router.get('/category/:category', getProductsByCategory);
 router.get('/:id', getProductById);
 
-// ✅ ADD THESE REVIEW ROUTES TO YOUR PRODUCT ROUTES:
+
 
 // Get reviews for a specific product
 router.get('/:id/reviews', async (req, res) => {
