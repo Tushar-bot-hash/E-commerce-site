@@ -49,11 +49,7 @@ const corsOptions = {
 // Apply CORS middleware - THIS HANDLES PREFLIGHT AUTOMATICALLY
 app.use(cors(corsOptions));
 
-// REMOVE THIS LINE - it's causing the error
-// app.options('*', cors(corsOptions));
 
-// REMOVE the manual CORS middleware - it's redundant with cors package
-// Keep only the essential middleware:
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
