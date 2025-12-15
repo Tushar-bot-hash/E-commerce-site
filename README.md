@@ -8,8 +8,8 @@ A full-featured, responsive e-commerce platform built using the MERN stack. The 
 
 | Component | Hosting Service | Link |
 | :--- | :--- | :--- |
-| **Frontend Deployment (Client)** | Vercel | [Click here to visit the live site](https://vercel.com/tusharv811-2882s-projects) |
-| **Backend API (Server)** | Render | [Backend API Endpoint](https://dashboard.render.com/web/srv-d47hlbmmcj7s73dd6d0g) |
+| **Frontend Deployment (Client)** | Vercel | [Click here to visit the live site](https://projects-lemon-eight.vercel.app/) |
+| **Backend API (Server)** | Render | [Backend API Endpoint](https://anime-api-backend-u42d.onrender.com) |
 
 **⚠️ Note on Backend Link:** The provided Render link points to your dashboard. Please replace it with the public URL of your deployed API for the link to be functional for users (e.g., `https://your-api-name.onrender.com`).
 
