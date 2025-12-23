@@ -1,160 +1,120 @@
 const express = require("express");
 const router = express.Router();
-const stripe = require("stripe");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { protect } = require("../middleware/auth");
 const Order = require("../models/Order");
 
-// ========================
-// STRIPE INIT
-// ========================
-let stripeInstance;
-if (process.env.STRIPE_SECRET_KEY) {
-  stripeInstance = stripe(process.env.STRIPE_SECRET_KEY);
-  console.log("✅ Stripe initialized.");
-}
-
-// ========================
-// CREATE CHECKOUT SESSION
-// ========================
+// CREATE SESSION
 router.post("/create-checkout-session", protect, async (req, res) => {
   try {
-    if (!stripeInstance) {
-      return res.status(500).json({ message: "Stripe not configured" });
-    }
-
     const { items, shippingInfo } = req.body;
 
-    // 1. RECALCULATE PRICES (Ensures Stripe matches your UI)
     const itemsPrice = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-    const taxPrice = Math.round(itemsPrice * 0.18); // 18% GST
-    const shippingPrice = itemsPrice > 1000 ? 0 : 50; 
-    const totalAmount = itemsPrice + taxPrice + shippingPrice;
+    const taxPrice = Math.round(itemsPrice * 0.18);
+    const shippingPrice = itemsPrice > 1000 ? 0 : 50;
 
-    // 2. BUILD LINE ITEMS (Starting with Products)
     const lineItems = items.map((item) => ({
       price_data: {
         currency: "inr",
-        product_data: {
-          name: item.name,
-          description: `Product ID: ${item.productId}`,
-        },
-        unit_amount: Math.round(item.price * 100), // Convert to Paise
+        product_data: { name: item.name },
+        unit_amount: Math.round(item.price * 100),
       },
       quantity: item.quantity,
     }));
 
-    // 3. ADD GST (18%) AS A SEPARATE LINE ITEM
-    if (taxPrice > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "inr",
-          product_data: {
-            name: "GST (18%)",
-            description: "Goods and Services Tax",
-          },
-          unit_amount: Math.round(taxPrice * 100),
-        },
-        quantity: 1,
-      });
-    }
+    // Add Tax and Shipping to Stripe UI
+    lineItems.push({
+      price_data: {
+        currency: "inr",
+        product_data: { name: "GST (18%)" },
+        unit_amount: Math.round(taxPrice * 100),
+      },
+      quantity: 1,
+    });
 
-    // 4. ADD SHIPPING AS A SEPARATE LINE ITEM
     if (shippingPrice > 0) {
       lineItems.push({
         price_data: {
           currency: "inr",
-          product_data: {
-            name: "Shipping Charges",
-          },
+          product_data: { name: "Shipping Charges" },
           unit_amount: Math.round(shippingPrice * 100),
         },
         quantity: 1,
       });
     }
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-    // 5. CREATE SESSION WITH ALL LINE ITEMS
-    const session = await stripeInstance.checkout.sessions.create({
+    const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-      line_items: lineItems, 
-      success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/checkout`,
+      line_items: lineItems,
+      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/checkout`,
       customer_email: req.user.email,
       metadata: {
         userId: req.user._id.toString(),
-        shippingInfo: JSON.stringify(shippingInfo),
+        // STRATEGY: Don't stringify everything. Just store essential info.
+        shippingAddress: shippingInfo.address,
+        city: shippingInfo.city,
+        phone: shippingInfo.phone,
+        zip: shippingInfo.zipCode,
         itemsPrice: itemsPrice.toString(),
         taxPrice: taxPrice.toString(),
-        shippingPrice: shippingPrice.toString(),
-        totalPrice: totalAmount.toString(),
-        items: JSON.stringify(items.map(i => ({ 
-            productId: i.productId, 
-            name: i.name, 
-            price: i.price, 
-            quantity: i.quantity 
-        })))
+        shippingPrice: shippingPrice.toString()
       },
     });
 
-    res.json({ success: true, url: session.url, sessionId: session.id });
-
+    res.json({ success: true, url: session.url });
   } catch (err) {
-    console.error("❌ Stripe Session Creation Error:", err);
-    res.status(500).json({ message: "Payment session creation failed", error: err.message });
+    console.error("SESSION ERROR:", err.message);
+    res.status(500).json({ success: false, message: "Session Creation Failed" });
   }
 });
 
-// ========================
-// VERIFY PAYMENT SESSION
-// ========================
+// VERIFY SESSION
 router.get("/verify/:sessionId", protect, async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const session = await stripeInstance.checkout.sessions.retrieve(sessionId);
+    
+    // Retrieve session and expand line_items to recreate order without metadata limits
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items']
+    });
 
     if (session.payment_status !== 'paid') {
-      return res.status(400).json({ success: false, message: 'Payment not completed' });
+      return res.status(400).json({ success: false, message: 'Payment incomplete' });
     }
 
-    const metadata = session.metadata;
-    const items = JSON.parse(metadata.items);
-    const shippingInfo = JSON.parse(metadata.shippingInfo);
-
-    // Check if order already exists
     let order = await Order.findOne({ "paymentResult.id": sessionId });
     
     if (!order) {
+      const meta = session.metadata;
+
       order = new Order({
-        user: metadata.userId,
-        orderItems: items.map(item => ({
-          product: item.productId,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity
-        })),
+        user: meta.userId,
+        // We pull items directly from Stripe's official line_items instead of metadata
+        orderItems: session.line_items.data
+          .filter(li => li.description !== "GST (18%)" && li.description !== "Shipping Charges")
+          .map(li => ({
+            name: li.description,
+            quantity: li.quantity,
+            price: li.amount_total / 100 / li.quantity,
+            product: null 
+          })),
         shippingAddress: {
-          address: shippingInfo.address,
-          city: shippingInfo.city,
-          state: shippingInfo.state,
-          zipCode: shippingInfo.zipCode,
-          phone: shippingInfo.phone,
-          country: shippingInfo.country || "India"
+          address: meta.shippingAddress,
+          city: meta.city,
+          zipCode: meta.zip,
+          phone: meta.phone,
+          country: "India"
         },
         paymentMethod: 'Stripe',
-        paymentResult: {
-          id: sessionId,
-          status: session.payment_status,
-          update_time: new Date().toISOString(),
-        },
-        itemsPrice: parseFloat(metadata.itemsPrice),
-        taxPrice: parseFloat(metadata.taxPrice),
-        shippingPrice: parseFloat(metadata.shippingPrice),
-        totalPrice: parseFloat(metadata.totalPrice),
+        paymentResult: { id: sessionId, status: 'paid' },
+        itemsPrice: Number(meta.itemsPrice),
+        taxPrice: Number(meta.taxPrice),
+        shippingPrice: Number(meta.shippingPrice),
+        totalPrice: session.amount_total / 100,
         isPaid: true,
         paidAt: new Date(),
-        orderStatus: 'Processing'
       });
 
       await order.save();
@@ -164,8 +124,9 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
     res.json({ success: true, order });
 
   } catch (err) {
-    console.error("❌ Payment verification error:", err);
-    res.status(500).json({ success: false, message: "Verification failed", error: err.message });
+    console.error("VERIFY ERROR:", err.message);
+    // Returning 500 but with a message so frontend doesn't just say "Verification failed"
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
