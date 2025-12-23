@@ -8,7 +8,31 @@ const useCartStore = create((set, get) => ({
   cartCount: 0,
   error: null,
 
-  // Fetch cart with better error handling
+  // --- CENTRALIZED CALCULATION LOGIC ---
+  // This ensures Cart and Checkout always show the same values
+  getCartDetails: () => {
+    const cart = get().cart;
+    const subtotal = cart?.totalPrice || 0;
+    
+    // 1. Shipping Logic: Free over ₹1000, else ₹50 (0 if cart is empty)
+    const shipping = (subtotal > 1000 || subtotal === 0) ? 0 : 50;
+    
+    // 2. Tax Logic: 18% GST
+    const tax = subtotal * 0.18;
+    
+    // 3. Final Total
+    const total = subtotal + shipping + tax;
+
+    return {
+      subtotal,
+      shipping,
+      tax,
+      total,
+      freeShippingThreshold: 1000,
+      amountToFreeShipping: Math.max(0, 1000 - subtotal)
+    };
+  },
+
   fetchCart: async () => {
     set({ loading: true, error: null });
     try {
@@ -28,15 +52,12 @@ const useCartStore = create((set, get) => ({
         cart: null,
         cartCount: 0
       });
-      
-      // Only show toast for non-auth errors
       if (error.response?.status !== 401) {
         toast.error(errorMessage);
       }
     }
   },
 
-  // Add to cart
   addToCart: async (productData) => {
     try {
       const response = await cartAPI.addToCart(productData);
@@ -50,13 +71,11 @@ const useCartStore = create((set, get) => ({
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to add to cart';
-      set({ error: message });
       toast.error(message);
       return { success: false, error: message };
     }
   },
 
-  // Update cart item
   updateCartItem: async (itemId, quantity) => {
     try {
       const response = await cartAPI.updateCartItem(itemId, { quantity });
@@ -66,23 +85,15 @@ const useCartStore = create((set, get) => ({
         cartCount: cart.items.reduce((total, item) => total + item.quantity, 0),
         error: null
       });
-      
-      if (quantity === 0) {
-        toast.success('Item removed from cart');
-      } else {
-        toast.success('Cart updated');
-      }
-      
+      toast.success(quantity === 0 ? 'Item removed' : 'Cart updated');
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to update cart';
-      set({ error: message });
       toast.error(message);
       return { success: false, error: message };
     }
   },
 
-  // Remove from cart
   removeFromCart: async (itemId) => {
     try {
       const response = await cartAPI.removeFromCart(itemId);
@@ -96,13 +107,11 @@ const useCartStore = create((set, get) => ({
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to remove item';
-      set({ error: message });
       toast.error(message);
       return { success: false, error: message };
     }
   },
 
-  // Clear cart
   clearCart: async () => {
     try {
       await cartAPI.clearCart();
@@ -115,19 +124,11 @@ const useCartStore = create((set, get) => ({
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to clear cart';
-      set({ error: message });
       toast.error(message);
       return { success: false, error: message };
     }
   },
 
-  // Get cart total price
-  getCartTotal: () => {
-    const cart = get().cart;
-    return cart?.totalPrice || 0;
-  },
-
-  // Check if cart is empty
   isCartEmpty: () => {
     const cart = get().cart;
     return !cart || !cart.items || cart.items.length === 0;
