@@ -28,28 +28,28 @@ const Dashboard = () => {
   const statCards = [
     {
       title: 'Total Revenue',
-      value: `₹${stats?.stats.totalRevenue.toFixed(2)}`,
+      value: `₹${(stats?.stats?.totalRevenue || 0).toFixed(2)}`,
       icon: DollarSign,
       color: 'bg-green-500',
       link: '/admin/orders'
     },
     {
       title: 'Total Orders',
-      value: stats?.stats.totalOrders,
+      value: stats?.stats?.totalOrders || 0,
       icon: ShoppingCart,
       color: 'bg-blue-500',
       link: '/admin/orders'
     },
     {
       title: 'Total Products',
-      value: stats?.stats.totalProducts,
+      value: stats?.stats?.totalProducts || 0,
       icon: Package,
       color: 'bg-purple-500',
       link: '/admin/products'
     },
     {
       title: 'Total Users',
-      value: stats?.stats.totalUsers,
+      value: stats?.stats?.totalUsers || 0,
       icon: Users,
       color: 'bg-orange-500',
       link: '/admin/users'
@@ -57,10 +57,10 @@ const Dashboard = () => {
   ];
 
   const orderStats = [
-    { label: 'Pending', value: stats?.stats.pendingOrders, color: 'bg-yellow-500' },
-    { label: 'Processing', value: stats?.stats.processingOrders, color: 'bg-blue-500' },
-    { label: 'Shipped', value: stats?.stats.shippedOrders, color: 'bg-purple-500' },
-    { label: 'Delivered', value: stats?.stats.deliveredOrders, color: 'bg-green-500' }
+    { label: 'Pending', value: stats?.stats?.pendingOrders || 0, color: 'bg-yellow-500' },
+    { label: 'Processing', value: stats?.stats?.processingOrders || 0, color: 'bg-blue-500' },
+    { label: 'Shipped', value: stats?.stats?.shippedOrders || 0, color: 'bg-purple-500' },
+    { label: 'Delivered', value: stats?.stats?.deliveredOrders || 0, color: 'bg-green-500' }
   ];
 
   return (
@@ -110,7 +110,7 @@ const Dashboard = () => {
                     <div
                       className={`h-full ${stat.color}`}
                       style={{
-                        width: `${(stat.value / stats?.stats.totalOrders) * 100}%`
+                        width: `${stats?.stats?.totalOrders > 0 ? (stat.value / stats.stats.totalOrders) * 100 : 0}%`
                       }}
                     />
                   </div>
@@ -119,7 +119,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Recent Orders */}
+          {/* Recent Orders - FIX APPLIED HERE */}
           <div className="card">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold">Recent Orders</h2>
@@ -128,23 +128,24 @@ const Dashboard = () => {
               </Link>
             </div>
             <div className="space-y-3">
-              {stats?.recentOrders.map((order) => (
+              {stats?.recentOrders?.map((order) => (
                 <Link
-                  key={order._id}
-                  to={`/orders/${order._id}`}
+                  key={order?._id}
+                  to={`/orders/${order?._id}`}
                   className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition"
                 >
                   <div>
-                    <div className="font-medium">#{order._id.slice(-8)}</div>
-                    <div className="text-sm text-gray-600">{order.user.name}</div>
+                    <div className="font-medium">#{order?._id?.slice(-8) || 'N/A'}</div>
+                    {/* CRASH FIX: Added Optional Chaining and fallback for user name */}
+                    <div className="text-sm text-gray-600">{order?.user?.name || 'Customer Not Found'}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold">₹{order.totalPrice.toFixed(2)}</div>
+                    <div className="font-bold">₹{(order?.totalPrice || 0).toFixed(2)}</div>
                     <span className={`badge badge-${
-                      order.orderStatus === 'delivered' ? 'success' :
-                      order.orderStatus === 'cancelled' ? 'danger' : 'warning'
+                      order?.orderStatus === 'delivered' ? 'success' :
+                      order?.orderStatus === 'cancelled' ? 'danger' : 'warning'
                     } text-xs`}>
-                      {order.orderStatus}
+                      {order?.orderStatus || 'unknown'}
                     </span>
                   </div>
                 </Link>
@@ -152,7 +153,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Low Stock Products */}
+          {/* Low Stock Products - SAFETY UPDATES */}
           <div className="card">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
@@ -164,30 +165,30 @@ const Dashboard = () => {
               </Link>
             </div>
             <div className="space-y-3">
-              {stats?.lowStockProducts.slice(0, 5).map((product) => (
-                <div key={product._id} className="flex items-center justify-between">
+              {stats?.lowStockProducts?.slice(0, 5).map((product) => (
+                <div key={product?._id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img
-                      src={product.images[0]}
-                      alt={product.name}
+                      src={product?.images?.[0] || '/placeholder.png'}
+                      alt={product?.name || 'Product'}
                       className="w-12 h-12 object-cover rounded"
                     />
                     <div>
-                      <div className="font-medium text-sm">{product.name}</div>
-                      <div className="text-xs text-gray-600">{product.category}</div>
+                      <div className="font-medium text-sm">{product?.name || 'Unnamed Product'}</div>
+                      <div className="text-xs text-gray-600">{product?.category || 'No Category'}</div>
                     </div>
                   </div>
                   <span className={`badge ${
-                    product.stock === 0 ? 'badge-danger' : 'badge-warning'
+                    product?.stock === 0 ? 'badge-danger' : 'badge-warning'
                   }`}>
-                    {product.stock} left
+                    {product?.stock ?? 0} left
                   </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Top Selling Products */}
+          {/* Top Selling Products - SAFETY UPDATES */}
           <div className="card">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
@@ -196,21 +197,21 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="space-y-3">
-              {stats?.topProducts.map((product) => (
-                <div key={product._id} className="flex items-center justify-between">
+              {stats?.topProducts?.map((product) => (
+                <div key={product?._id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img
-                      src={product.images[0]}
-                      alt={product.name}
+                      src={product?.images?.[0] || '/placeholder.png'}
+                      alt={product?.name || 'Product'}
                       className="w-12 h-12 object-cover rounded"
                     />
                     <div>
-                      <div className="font-medium text-sm">{product.name}</div>
-                      <div className="text-xs text-gray-600">₹{product.price}</div>
+                      <div className="font-medium text-sm">{product?.name || 'Unnamed Product'}</div>
+                      <div className="text-xs text-gray-600">₹{product?.price || 0}</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-green-600">{product.sold}</div>
+                    <div className="font-bold text-green-600">{product?.sold || 0}</div>
                     <div className="text-xs text-gray-600">sold</div>
                   </div>
                 </div>
