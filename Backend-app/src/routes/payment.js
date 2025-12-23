@@ -24,13 +24,13 @@ router.post("/create-checkout-session", protect, async (req, res) => {
 
     const { items, shippingInfo } = req.body;
 
-    // 1. RECALCULATE PRICES (Matching Cart/Checkout frontend)
+    // 1. RECALCULATE PRICES (Ensures Stripe matches your UI)
     const itemsPrice = items.reduce((total, item) => total + (item.price * item.quantity), 0);
     const taxPrice = Math.round(itemsPrice * 0.18); // 18% GST
-    const shippingPrice = itemsPrice > 1000 ? 0 : 50;
-    const totalPrice = itemsPrice + taxPrice + shippingPrice;
+    const shippingPrice = itemsPrice > 1000 ? 0 : 50; 
+    const totalAmount = itemsPrice + taxPrice + shippingPrice;
 
-    // 2. BUILD LINE ITEMS (Products)
+    // 2. BUILD LINE ITEMS (Starting with Products)
     const lineItems = items.map((item) => ({
       price_data: {
         currency: "inr",
@@ -38,12 +38,12 @@ router.post("/create-checkout-session", protect, async (req, res) => {
           name: item.name,
           description: `Product ID: ${item.productId}`,
         },
-        unit_amount: Math.round(item.price * 100), // INR to Paise
+        unit_amount: Math.round(item.price * 100), // Convert to Paise
       },
       quantity: item.quantity,
     }));
 
-    // 3. ADD TAX AS LINE ITEM (So Stripe shows ₹1888)
+    // 3. ADD GST (18%) AS A SEPARATE LINE ITEM
     if (taxPrice > 0) {
       lineItems.push({
         price_data: {
@@ -58,7 +58,7 @@ router.post("/create-checkout-session", protect, async (req, res) => {
       });
     }
 
-    // 4. ADD SHIPPING AS LINE ITEM
+    // 4. ADD SHIPPING AS A SEPARATE LINE ITEM
     if (shippingPrice > 0) {
       lineItems.push({
         price_data: {
@@ -74,10 +74,11 @@ router.post("/create-checkout-session", protect, async (req, res) => {
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+    // 5. CREATE SESSION WITH ALL LINE ITEMS
     const session = await stripeInstance.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-      line_items: lineItems,
+      line_items: lineItems, 
       success_url: `${frontendUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${frontendUrl}/checkout`,
       customer_email: req.user.email,
@@ -87,8 +88,13 @@ router.post("/create-checkout-session", protect, async (req, res) => {
         itemsPrice: itemsPrice.toString(),
         taxPrice: taxPrice.toString(),
         shippingPrice: shippingPrice.toString(),
-        totalPrice: totalPrice.toString(),
-        items: JSON.stringify(items.map(i => ({ productId: i.productId, name: i.name, price: i.price, quantity: i.quantity })))
+        totalPrice: totalAmount.toString(),
+        items: JSON.stringify(items.map(i => ({ 
+            productId: i.productId, 
+            name: i.name, 
+            price: i.price, 
+            quantity: i.quantity 
+        })))
       },
     });
 
@@ -106,7 +112,6 @@ router.post("/create-checkout-session", protect, async (req, res) => {
 router.get("/verify/:sessionId", protect, async (req, res) => {
   try {
     const { sessionId } = req.params;
-
     const session = await stripeInstance.checkout.sessions.retrieve(sessionId);
 
     if (session.payment_status !== 'paid') {
@@ -117,6 +122,7 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
     const items = JSON.parse(metadata.items);
     const shippingInfo = JSON.parse(metadata.shippingInfo);
 
+    // Check if order already exists
     let order = await Order.findOne({ "paymentResult.id": sessionId });
     
     if (!order) {
@@ -148,6 +154,7 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
         totalPrice: parseFloat(metadata.totalPrice),
         isPaid: true,
         paidAt: new Date(),
+        orderStatus: 'Processing'
       });
 
       await order.save();
