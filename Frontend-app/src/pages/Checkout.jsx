@@ -4,11 +4,11 @@ import { CreditCard, Loader2, ArrowLeft, ShieldCheck, MapPin } from 'lucide-reac
 import toast from 'react-hot-toast';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Import your central API services
+import { authAPI, orderAPI, paymentAPI } from '../services/api';
 
 const Checkout = () => {
-  const { cart, loading, fetchCart, getCartDetails } = useCartStore();
+  const { cart, fetchCart, getCartDetails, clearCart } = useCartStore();
   const { user, getProfile } = useAuthStore();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
@@ -35,7 +35,6 @@ const Checkout = () => {
         firstName: names[0] || '',
         lastName: names.slice(1).join(' ') || '',
         email: user.email || '',
-        // Populate with saved address if it exists in your user model
         address: user.shippingAddress?.address || '',
         city: user.shippingAddress?.city || '',
         state: user.shippingAddress?.state || '',
@@ -45,7 +44,10 @@ const Checkout = () => {
     }
   }, [user]);
 
-  // --- NEW SAVE ADDRESS FUNCTION ---
+  /**
+   * 🛠️ INSTRUCTION: Save Address using centralized API
+   * This avoids the 404 error by hitting /api/auth/profile instead of /api/users/profile
+   */
   const handleSaveAddress = async () => {
     if (!formData.address || !formData.phone || !formData.city) {
       return toast.error("Please fill address details before saving");
@@ -53,35 +55,69 @@ const Checkout = () => {
 
     setIsSavingAddress(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/users/profile`, {
-        method: 'PUT',
-        headers: { 
-          'Authorization': `Bearer ${token}`, 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ shippingAddress: formData })
-      });
-
-      if (response.ok) {
-        toast.success("Shipping address saved to your profile!");
-      } else {
-        throw new Error("Failed to save");
-      }
+      await authAPI.updateProfile({ shippingAddress: formData });
+      toast.success("Shipping address saved to your profile!");
     } catch (err) {
+      console.error("Save Address Error:", err);
       toast.error("Could not save address. Try again later.");
     } finally {
       setIsSavingAddress(false);
     }
   };
 
+  /**
+   * 🛠️ INSTRUCTION: Handle Checkout Process
+   * 1. Creates the Order in DB. 2. Creates Stripe Session. 3. Redirects.
+   */
   const handleCheckout = async () => {
-    if (!formData.address || !formData.phone) return toast.error("Address is required");
+    if (!formData.address || !formData.phone) {
+      return toast.error("Shipping address and phone are required");
+    }
+    
     setCheckoutLoading(true);
-    // ... rest of your handleCheckout logic (Stripe fetch)
+    try {
+      // 1. Prepare Order Data
+      const orderData = {
+        orderItems: cart.map(item => ({
+          product: item.product._id,
+          quantity: item.quantity,
+          price: item.product.price
+        })),
+        shippingAddress: formData,
+        totalPrice: total,
+      };
+
+      // 2. Create the order in your database
+      await orderAPI.createOrder(orderData);
+
+      // 3. Initiate Payment (Stripe)
+      const response = await paymentAPI.createCheckoutSession({
+        items: cart,
+        shippingAddress: formData
+      });
+
+      // 4. Redirect to Stripe's hosted page
+      if (response.data.url) {
+        window.location.href = response.data.url;
+      } else {
+        throw new Error("No redirect URL received from payment gateway");
+      }
+
+    } catch (error) {
+      console.error("Checkout process failed:", error);
+      toast.error(error.response?.data?.message || "Something went wrong. Please try again.");
+      setCheckoutLoading(false); // STOP THE SPINNER on failure
+    }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>;
+  // Loading state for cart fetching
+  if (!cart.length && !checkoutLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+        <Loader2 className="animate-spin text-blue-500" size={40} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white py-8 px-4">
@@ -97,7 +133,6 @@ const Checkout = () => {
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <MapPin className="text-blue-500" /> Shipping Information
               </h2>
-              {/* SAVE ADDRESS BUTTON */}
               <button 
                 onClick={handleSaveAddress}
                 disabled={isSavingAddress}
@@ -109,18 +144,17 @@ const Checkout = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input className="bg-[#334155] p-3 rounded-lg text-white" placeholder="First Name" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
-              <input className="bg-[#334155] p-3 rounded-lg text-white" placeholder="Last Name" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
-              <input className="col-span-full bg-[#334155] p-3 rounded-lg text-white" placeholder="Street Address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
-              <input className="bg-[#334155] p-3 rounded-lg text-white" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-              <input className="bg-[#334155] p-3 rounded-lg text-white" placeholder="City" value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} />
-              <input className="bg-[#334155] p-3 rounded-lg text-white" placeholder="State" value={formData.state} onChange={(e) => setFormData({...formData, state: e.target.value})} />
-              <input className="bg-[#334155] p-3 rounded-lg text-white" placeholder="Zip Code" value={formData.zipCode} onChange={(e) => setFormData({...formData, zipCode: e.target.value})} />
+              <input className="bg-[#334155] p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="First Name" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
+              <input className="bg-[#334155] p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Last Name" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
+              <input className="col-span-full bg-[#334155] p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Street Address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
+              <input className="bg-[#334155] p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+              <input className="bg-[#334155] p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="City" value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} />
+              <input className="bg-[#334155] p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="State" value={formData.state} onChange={(e) => setFormData({...formData, state: e.target.value})} />
+              <input className="bg-[#334155] p-3 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500" placeholder="Zip Code" value={formData.zipCode} onChange={(e) => setFormData({...formData, zipCode: e.target.value})} />
             </div>
           </div>
         </div>
 
-        {/* Order Summary Sidebar - Kept Identical for Pricing Consistency */}
         <div className="lg:col-span-1">
           <div className="bg-[#1e293b] p-6 rounded-2xl shadow-xl border border-slate-700 sticky top-20">
             <h2 className="text-xl font-bold mb-6 border-b border-slate-700 pb-4">Order Summary</h2>
@@ -132,9 +166,17 @@ const Checkout = () => {
                 <span>Total</span><span className="text-blue-400">₹{total.toFixed(2)}</span>
               </div>
             </div>
-            <button onClick={handleCheckout} className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold uppercase transition">
-              {checkoutLoading ? <Loader2 className="animate-spin mx-auto" /> : "Proceed to Payment"}
+            <button 
+              onClick={handleCheckout} 
+              disabled={checkoutLoading}
+              className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold uppercase transition disabled:opacity-50 flex justify-center items-center"
+            >
+              {checkoutLoading ? <Loader2 className="animate-spin" /> : "Proceed to Payment"}
             </button>
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-400">
+              <ShieldCheck size={14} className="text-green-500" />
+              Secure SSL Encrypted Checkout
+            </div>
           </div>
         </div>
       </div>

@@ -2,11 +2,12 @@ import { create } from 'zustand';
 import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
-const useAuthStore = create((set) => ({
+const useAuthStore = create((set, get) => ({
   user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null,
   token: localStorage.getItem('token') || null,
   isAuthenticated: !!localStorage.getItem('token'),
   loading: false,
+  isInitialized: false, // New state to track if we've checked the token on load
 
   // Register
   register: async (data) => {
@@ -58,15 +59,26 @@ const useAuthStore = create((set) => ({
     toast.success('Logged out successfully');
   },
 
-  // Get Profile
+  // Get Profile / Check Auth
   getProfile: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return { success: false };
+
     try {
+      // If this call fails with 404, you MUST update your server.js 
+      // to include: app.use('/api/users', require('./src/routes/auth'));
       const response = await authAPI.getProfile();
       const user = response.data.user;
+      
       localStorage.setItem('user', JSON.stringify(user));
-      set({ user });
+      set({ user, isAuthenticated: true, isInitialized: true });
       return { success: true, user };
     } catch (error) {
+      // If token is invalid or expired
+      if (error.response?.status === 401) {
+        get().logout();
+      }
+      set({ isInitialized: true });
       return { success: false };
     }
   },
