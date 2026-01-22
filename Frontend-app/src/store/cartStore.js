@@ -3,15 +3,17 @@ import { cartAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const useCartStore = create((set, get) => ({
-  cart: null,
+  // ✅ UPDATED: Initialized as an object with empty items. 
+  // This prevents "Cannot read properties of null" on the first render.
+  cart: { items: [], totalPrice: 0 },
   loading: false,
   cartCount: 0,
   error: null,
 
-  // --- CENTRALIZED CALCULATION LOGIC ---
-  // This ensures Cart and Checkout always show the same values
+  // ✅ UPDATED: Centralized calculation logic with safety checks
   getCartDetails: () => {
     const cart = get().cart;
+    // Safety check: if cart is undefined or totalPrice is missing, default to 0
     const subtotal = cart?.totalPrice || 0;
     
     // 1. Shipping Logic: Free over ₹1000, else ₹50 (0 if cart is empty)
@@ -33,14 +35,16 @@ const useCartStore = create((set, get) => ({
     };
   },
 
+  // ✅ UPDATED: Complete fetch logic
   fetchCart: async () => {
     set({ loading: true, error: null });
     try {
       const response = await cartAPI.getCart();
-      const cart = response.data.cart;
+      // Ensure we always have a fallback object structure
+      const cartData = response.data.cart || { items: [], totalPrice: 0 };
       set({ 
-        cart, 
-        cartCount: cart.items.reduce((total, item) => total + item.quantity, 0),
+        cart: cartData, 
+        cartCount: cartData.items.reduce((total, item) => total + item.quantity, 0),
         loading: false 
       });
     } catch (error) {
@@ -49,7 +53,8 @@ const useCartStore = create((set, get) => ({
       set({ 
         loading: false, 
         error: errorMessage,
-        cart: null,
+        // ✅ UPDATED: On error, we set back to empty object, NOT null
+        cart: { items: [], totalPrice: 0 },
         cartCount: 0
       });
       if (error.response?.status !== 401) {
@@ -129,6 +134,7 @@ const useCartStore = create((set, get) => ({
     }
   },
 
+  // ✅ UPDATED: Helper function to check state
   isCartEmpty: () => {
     const cart = get().cart;
     return !cart || !cart.items || cart.items.length === 0;
