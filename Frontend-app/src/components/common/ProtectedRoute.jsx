@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 const ProtectedRoute = ({ children }) => {
   const { user, isAuthenticated, isInitialized, getProfile } = useAuthStore();
   const [isChecking, setIsChecking] = useState(true);
+  const [verificationFailed, setVerificationFailed] = useState(false);
 
   // Debug logging
   console.log("🔐 ProtectedRoute State:", {
@@ -17,20 +18,47 @@ const ProtectedRoute = ({ children }) => {
 
   // Effect to verify authentication on mount
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId;
+
     const verifyAuth = async () => {
-      // If not initialized yet, check with backend
-      if (!isInitialized && localStorage.getItem('token')) {
-        console.log("🔄 Checking token validity with backend...");
-        await getProfile();
+      try {
+        // If not initialized yet AND we have a token, check with backend
+        if (!isInitialized && localStorage.getItem('token')) {
+          console.log("🔄 Checking token validity with backend...");
+          await getProfile();
+        }
+      } catch (error) {
+        console.error("❌ Token verification failed:", error);
+        if (isMounted) {
+          setVerificationFailed(true);
+        }
+      } finally {
+        if (isMounted) {
+          setIsChecking(false);
+        }
       }
-      setIsChecking(false);
     };
 
+    // Set a timeout to prevent infinite loading
+    timeoutId = setTimeout(() => {
+      if (isMounted && isChecking) {
+        console.warn("⚠️ Auth verification timeout - proceeding with localStorage state");
+        setIsChecking(false);
+        setVerificationFailed(true);
+      }
+    }, 10000); // 10 second timeout
+
     verifyAuth();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [isInitialized, getProfile]);
 
   // Show loading while checking
-  if (isChecking || (!isInitialized && localStorage.getItem('token'))) {
+  if (isChecking) {
     console.log("⏳ ProtectedRoute: Verifying authentication...");
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -43,6 +71,20 @@ const ProtectedRoute = ({ children }) => {
         </div>
       </div>
     );
+  }
+
+  // Handle verification failure
+  if (verificationFailed) {
+    console.warn("⚠️ Token verification failed, checking localStorage state");
+    // Fall back to localStorage check
+    const token = localStorage.getItem('token');
+    const localUser = localStorage.getItem('user');
+    
+    if (token && localUser) {
+      console.log("📦 Using localStorage auth state");
+      // Allow access based on localStorage
+      return children;
+    }
   }
 
   // If no valid authentication, redirect to login

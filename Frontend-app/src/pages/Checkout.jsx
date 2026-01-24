@@ -24,6 +24,7 @@ const Checkout = () => {
 
   // Load cart and user data when component mounts
   useEffect(() => {
+    console.log("🏁 Checkout component mounted - auth must be working!");
     fetchCart();
     if (!user) getProfile();
   }, [fetchCart, getProfile, user]);
@@ -177,12 +178,183 @@ const Checkout = () => {
     );
   }
 
-  // ... (Rest of the JSX remains exactly the same as before)
-  // Only the handleCheckout function was updated above
+  // 🚨 CRITICAL: This is the JSX that was missing!
   return (
     <div className="min-h-screen bg-[#0f172a] text-white py-8 px-4 font-sans">
-      {/* Loading overlay and JSX remains unchanged */}
-      {/* ... */}
+      {/* Loading overlay during payment processing */}
+      {checkoutLoading && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center">
+          <Loader2 className="animate-spin text-blue-500 mb-4" size={60} />
+          <h2 className="text-2xl font-bold">Processing Your Payment</h2>
+          <p className="text-gray-400 mt-2">Redirecting to secure payment gateway...</p>
+        </div>
+      )}
+
+      <div className="max-w-6xl mx-auto grid lg:grid-cols-3 gap-8">
+        {/* Left Column - Shipping Form */}
+        <div className="lg:col-span-2 space-y-6">
+          <button 
+            onClick={() => navigate('/cart')} 
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition"
+          >
+            <ArrowLeft size={20} /> Back to Cart
+          </button>
+          
+          <div className="bg-[#1e293b] p-8 rounded-2xl border border-slate-700 shadow-xl">
+            <h2 className="text-2xl font-bold flex items-center gap-2 mb-8">
+              <MapPin className="text-blue-500" /> Shipping Information
+            </h2>
+             
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* First Name */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">First Name</label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  placeholder="First Name" 
+                  value={formData.firstName} 
+                  onChange={(e) => setFormData({...formData, firstName: e.target.value})} 
+                />
+              </div>
+              
+              {/* Last Name */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">Last Name</label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  placeholder="Last Name" 
+                  value={formData.lastName} 
+                  onChange={(e) => setFormData({...formData, lastName: e.target.value})} 
+                />
+              </div>
+              
+              {/* Street Address */}
+              <div className="col-span-full flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">
+                  Street Address *
+                </label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  placeholder="123 Anime Street, Building Name" 
+                  value={formData.street}
+                  onChange={(e) => setFormData({...formData, street: e.target.value})}
+                  required
+                />
+              </div>
+              
+              {/* Phone Number */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">Phone Number *</label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  placeholder="+91 0000000000" 
+                  value={formData.phone} 
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  required
+                />
+              </div>
+              
+              {/* City */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">City *</label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  placeholder="Mumbai" 
+                  value={formData.city} 
+                  onChange={(e) => setFormData({...formData, city: e.target.value})}
+                  required
+                />
+              </div>
+              
+              {/* State */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">State *</label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  placeholder="Maharashtra" 
+                  value={formData.state} 
+                  onChange={(e) => setFormData({...formData, state: e.target.value})}
+                  required
+                />
+              </div>
+              
+              {/* ZIP Code */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">ZIP Code *</label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  placeholder="400001" 
+                  value={formData.zipCode} 
+                  onChange={(e) => setFormData({...formData, zipCode: e.target.value})}
+                  required
+                />
+              </div>
+              
+              {/* Country */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400 uppercase tracking-wider">Country *</label>
+                <input 
+                  className="bg-[#0f172a] p-3 rounded-lg border border-slate-700 focus:border-blue-500 outline-none" 
+                  value={formData.country} 
+                  onChange={(e) => setFormData({...formData, country: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Order Summary */}
+        <div className="lg:col-span-1">
+          <div className="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 sticky top-20 shadow-2xl">
+            <h2 className="text-xl font-bold mb-6 border-b border-slate-700 pb-4">Order Summary</h2>
+            
+            {/* Price Breakdown */}
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between text-gray-400 text-sm">
+                <span>Subtotal</span>
+                <span>₹{subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-400 text-sm">
+                <span>GST (18%)</span>
+                <span>₹{tax.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-400 text-sm">
+                <span>Shipping</span>
+                <span>{shipping === 0 ? 'FREE' : `₹${shipping.toFixed(2)}`}</span>
+              </div>
+              
+              {/* Total */}
+              <div className="flex justify-between items-center pt-4 border-t border-slate-700 font-bold text-xl text-white">
+                <span>Total</span>
+                <span className="text-blue-400">₹{total.toFixed(2)}</span>
+              </div>
+            </div>
+            
+            {/* Pay Now Button */}
+            <button 
+              onClick={handleCheckout} 
+              disabled={checkoutLoading || cartItems.length === 0}
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed py-4 rounded-xl font-bold uppercase transition flex items-center justify-center gap-3"
+            >
+              <CreditCard size={20} /> 
+              {checkoutLoading ? 'Processing...' : 'Pay Now'}
+            </button>
+            
+            {/* Security Note */}
+            <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1 uppercase tracking-widest">
+              <ShieldCheck size={14} className="text-green-500" /> Secure SSL Encryption
+            </p>
+          </div>
+          
+          {/* Debug Info */}
+          <div className="mt-4 p-4 bg-gray-900/50 rounded-lg text-xs">
+            <p className="text-gray-400 mb-2">Debug Info:</p>
+            <p>Items in cart: {cartItems.length}</p>
+            <p>User: {user ? user.name : 'Not logged in'}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
