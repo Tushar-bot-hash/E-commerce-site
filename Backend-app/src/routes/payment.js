@@ -34,7 +34,7 @@ router.post("/create-checkout-session", protect, async (req, res) => {
       shippingInfo: req.body.shippingInfo
     }, null, 2));
     
-    const { items, shippingInfo, orderId, itemsPrice, taxPrice, shippingPrice } = req.body;
+    let { items, shippingInfo, orderId, itemsPrice, taxPrice, shippingPrice } = req.body;
     
     // 🎯 VALIDATION
     console.log("\n🔍 VALIDATING REQUEST DATA:");
@@ -203,7 +203,7 @@ router.post("/create-checkout-session", protect, async (req, res) => {
       console.log(`  Shipping: ₹${fixedShippingPrice}`);
       console.log(`  Total: ₹${fixedTotal} (was ₹${req.body.totalAmount})`);
       
-      // Use fixed items for Stripe
+      // Use fixed values
       items = fixedItems;
       itemsPrice = fixedItemsTotal;
       taxPrice = fixedTaxPrice;
@@ -321,7 +321,7 @@ router.post("/create-checkout-session", protect, async (req, res) => {
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
-      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&orderId=${orderId}`,
       cancel_url: `${process.env.FRONTEND_URL}/checkout`,
       customer_email: req.user.email,
       metadata: {
@@ -427,18 +427,41 @@ router.post("/create-checkout-session", protect, async (req, res) => {
 // VERIFY SESSION - Updated to handle the new price structure
 router.get("/verify/:sessionId", protect, async (req, res) => {
   try {
-    console.log("\n" + "=".repeat(70));
+    console.log("\n" + "=".repeat(80));
     console.log("🔍 VERIFYING PAYMENT SESSION");
-    console.log("=".repeat(70));
+    console.log("=".repeat(80));
     
     const { sessionId } = req.params;
     console.log("Session ID:", sessionId);
     console.log("User ID:", req.user._id);
+    console.log("User email:", req.user.email);
     
-    // Retrieve session and expand line_items
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['line_items']
-    });
+    // 🎯 VALIDATE SESSION ID FORMAT
+    if (!sessionId || !sessionId.startsWith('cs_test_') && !sessionId.startsWith('cs_live_')) {
+      console.log("❌ INVALID SESSION ID FORMAT");
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid session ID format',
+        sessionId: sessionId
+      });
+    }
+
+    // Retrieve session from Stripe
+    let session;
+    try {
+      console.log("\n🔗 RETRIEVING SESSION FROM STRIPE...");
+      session = await stripe.checkout.sessions.retrieve(sessionId, {
+        expand: ['line_items', 'payment_intent']
+      });
+      console.log("✅ Stripe session retrieved successfully");
+    } catch (stripeError) {
+      console.error("❌ STRIPE RETRIEVAL ERROR:", stripeError.message);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Payment session not found or expired',
+        error: process.env.NODE_ENV === 'development' ? stripeError.message : undefined
+      });
+    }
 
     console.log("\n📋 SESSION DETAILS:");
     console.log("-".repeat(40));
@@ -446,144 +469,271 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
     console.log("Amount Total: ₹" + (session.amount_total / 100));
     console.log("Customer Email:", session.customer_email);
     console.log("Created:", new Date(session.created * 1000).toLocaleString());
+    console.log("Expires:", session.expires_at ? new Date(session.expires_at * 1000).toLocaleString() : 'N/A');
     
-    console.log("\n💰 PAYMENT DETAILS:");
-    console.log("-".repeat(40));
-    console.log("Line Items count:", session.line_items?.data?.length || 0);
-    
-    if (session.line_items?.data) {
-      console.log("\n📦 LINE ITEMS BREAKDOWN:");
-      session.line_items.data.forEach((item, index) => {
-        console.log(`\nItem ${index + 1}: ${item.description}`);
-        console.log(`  Amount: ₹${item.amount_total / 100}`);
-        console.log(`  Quantity: ${item.quantity}`);
-        console.log(`  Price per unit: ₹${item.price?.unit_amount / 100 || 'N/A'}`);
-      });
-    }
-    
+    // 🎯 CHECK IF PAYMENT IS COMPLETE
     if (session.payment_status !== 'paid') {
-      console.log("\n❌ PAYMENT INCOMPLETE");
+      console.log("\n❌ PAYMENT NOT COMPLETE - Status:", session.payment_status);
       return res.status(400).json({ 
         success: false, 
-        message: 'Payment incomplete' 
+        message: `Payment is ${session.payment_status}. Please complete the payment first.`,
+        payment_status: session.payment_status,
+        amount: session.amount_total / 100
       });
     }
 
-    console.log("\n✅ PAYMENT VERIFIED - PAID");
+    console.log("\n✅ PAYMENT VERIFIED - STATUS: PAID");
     
+    // 🎯 CHECK IF ORDER ALREADY EXISTS
     let order = await Order.findOne({ "paymentResult.id": sessionId });
     
-    if (!order) {
-      const meta = session.metadata;
+    if (order) {
+      console.log("\nℹ️  ORDER ALREADY EXISTS FOR THIS PAYMENT:");
+      console.log("Order ID:", order._id);
+      console.log("Order Total: ₹" + order.totalPrice);
+      console.log("Order Status:", order.orderStatus);
       
-      console.log("\n📦 CREATING ORDER FROM STRIPE METADATA:");
-      console.log("-".repeat(40));
-      console.log("Metadata keys:", Object.keys(meta));
-      console.log("\n💰 PRICES FROM METADATA:");
-      console.log("Items Price:", meta.itemsPrice);
-      console.log("Tax Price:", meta.taxPrice);
-      console.log("Shipping Price:", meta.shippingPrice);
-      console.log("Total Price:", meta.totalPrice);
-      console.log("Debug - had 5000 bug:", meta.debug_has5000Bug);
-      console.log("Debug - fixed price:", meta.debug_fixedPrice);
-
-      // Filter out tax and shipping items
-      const productItems = session.line_items.data.filter(li => 
-        !li.description.includes("GST") && 
-        !li.description.includes("Shipping") &&
-        !li.description.includes("Tax")
-      );
-
-      console.log("\n🛒 PRODUCT ITEMS FOR ORDER:");
-      console.log(`Found ${productItems.length} product items`);
+      // Populate user data
+      await order.populate('user', 'name email');
       
+      console.log("\n" + "=".repeat(80));
+      console.log("✅ ORDER ALREADY PROCESSED - RETURNING EXISTING ORDER");
+      console.log("=".repeat(80));
+      
+      return res.json({ 
+        success: true, 
+        message: 'Order already processed',
+        order: {
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          totalPrice: order.totalPrice,
+          isPaid: order.isPaid,
+          paidAt: order.paidAt,
+          orderStatus: order.orderStatus,
+          user: order.user,
+          orderItems: order.orderItems.map(item => ({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            total: item.price * item.quantity
+          }))
+        }
+      });
+    }
+
+    // 🎯 CREATE NEW ORDER FROM STRIPE SESSION
+    console.log("\n📦 CREATING NEW ORDER FROM STRIPE SESSION");
+    console.log("-".repeat(40));
+    
+    const meta = session.metadata || {};
+    
+    console.log("Metadata available:", Object.keys(meta));
+    console.log("\n💰 PRICES FROM METADATA:");
+    console.log("Items Price:", meta.itemsPrice || 'Not available');
+    console.log("Tax Price:", meta.taxPrice || 'Not available');
+    console.log("Shipping Price:", meta.shippingPrice || 'Not available');
+    console.log("Total Price:", meta.totalPrice || 'Not available');
+    console.log("Order ID from metadata:", meta.orderId || 'Not available');
+    
+    // 🎯 EXTRACT PRODUCT ITEMS (EXCLUDE TAX/SHIPPING)
+    const productItems = session.line_items?.data?.filter(li => 
+      li && li.description && 
+      !li.description.toLowerCase().includes("gst") && 
+      !li.description.toLowerCase().includes("shipping") &&
+      !li.description.toLowerCase().includes("tax")
+    ) || [];
+
+    console.log(`\n🛒 EXTRACTED ${productItems.length} PRODUCT ITEMS:`);
+    
+    if (productItems.length === 0 && session.line_items?.data) {
+      console.log("\n⚠️  No product items filtered, showing all items:");
+      session.line_items.data.forEach((item, index) => {
+        console.log(`Item ${index + 1}: ${item.description || 'No description'}`);
+      });
+    } else {
       productItems.forEach((item, index) => {
-        console.log(`Item ${index + 1}: ${item.description}`);
-        console.log(`  Price: ₹${item.amount_total / 100 / item.quantity}`);
+        const pricePerUnit = item.amount_total / 100 / item.quantity;
+        console.log(`\nItem ${index + 1}: ${item.description || 'Unnamed item'}`);
+        console.log(`  Price per unit: ₹${pricePerUnit}`);
         console.log(`  Quantity: ${item.quantity}`);
         console.log(`  Total: ₹${item.amount_total / 100}`);
       });
+    }
 
-      order = new Order({
-        user: meta.userId,
-        orderItems: productItems.map(li => ({
-          name: li.description,
+    // 🎯 PREPARE ORDER DATA
+    const orderData = {
+      user: meta.userId || req.user._id,
+      orderItems: productItems.map(li => {
+        const pricePerUnit = li.amount_total / 100 / li.quantity;
+        return {
+          name: li.description || 'Product',
           quantity: li.quantity,
-          price: li.amount_total / 100 / li.quantity,
-          product: null 
-        })),
+          price: pricePerUnit,
+          product: null,
+          image: li.price?.product_data?.images?.[0] || '/images/default-product.jpg'
+        };
+      }),
+      shippingAddress: {
+        address: meta.shippingAddress || 'Not provided',
+        city: meta.city || 'Not provided',
+        zipCode: meta.zip || 'Not provided',
+        phone: meta.phone || 'Not provided',
+        state: meta.state || '',
+        country: meta.country || "India"
+      },
+      paymentMethod: 'card',
+      paymentResult: { 
+        id: sessionId, 
+        status: 'paid',
+        email_address: session.customer_email || req.user.email,
+        amount: session.amount_total / 100,
+        currency: session.currency || 'inr'
+      },
+      itemsPrice: Number(meta.itemsPrice) || Math.round(session.amount_total / 100 * 0.82), // Estimate if not provided
+      taxPrice: Number(meta.taxPrice) || Math.round(session.amount_total / 100 * 0.18), // Estimate 18% GST
+      shippingPrice: Number(meta.shippingPrice) || 0,
+      totalPrice: Number(meta.totalPrice) || (session.amount_total / 100),
+      isPaid: true,
+      paidAt: new Date(),
+      orderStatus: 'processing'
+    };
+
+    console.log("\n📝 ORDER DATA TO CREATE:");
+    console.log("-".repeat(40));
+    console.log("User:", orderData.user);
+    console.log("Items count:", orderData.orderItems.length);
+    console.log("Total Price: ₹" + orderData.totalPrice);
+    console.log("Payment ID:", orderData.paymentResult.id);
+
+    try {
+      // 🎯 CREATE ORDER
+      order = new Order(orderData);
+      await order.save();
+      
+      console.log("\n✅ ORDER CREATED SUCCESSFULLY:");
+      console.log("Order ID:", order._id);
+      console.log("Order Total: ₹" + order.totalPrice);
+      
+      // Generate order number if not exists
+      if (!order.orderNumber) {
+        order.orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        await order.save();
+        console.log("Generated Order Number:", order.orderNumber);
+      }
+      
+    } catch (createError) {
+      console.error("\n❌ ORDER CREATION ERROR:");
+      console.error("Error:", createError.message);
+      console.error("Validation errors:", createError.errors);
+      
+      // Try to save minimal order data
+      const minimalOrder = new Order({
+        user: req.user._id,
+        orderItems: [{
+          name: 'Payment Receipt',
+          quantity: 1,
+          price: session.amount_total / 100,
+          product: null
+        }],
         shippingAddress: {
-          address: meta.shippingAddress,
-          city: meta.city,
-          zipCode: meta.zip,
-          phone: meta.phone,
-          state: meta.state || '',
-          country: meta.country || "India"
+          address: 'Payment completed - address to be updated',
+          city: 'Online',
+          country: 'India'
         },
         paymentMethod: 'card',
         paymentResult: { 
           id: sessionId, 
           status: 'paid',
-          email_address: session.customer_email,
-          amount: session.amount_total / 100
+          email_address: session.customer_email
         },
-        itemsPrice: Number(meta.itemsPrice) || 0,
-        taxPrice: Number(meta.taxPrice) || 0,
-        shippingPrice: Number(meta.shippingPrice) || 0,
-        totalPrice: Number(meta.totalPrice) || (session.amount_total / 100),
+        itemsPrice: session.amount_total / 100,
+        taxPrice: 0,
+        shippingPrice: 0,
+        totalPrice: session.amount_total / 100,
         isPaid: true,
         paidAt: new Date(),
+        notes: 'Auto-created from payment verification with minimal data'
       });
-
-      await order.save();
-      console.log("\n✅ ORDER CREATED FROM PAYMENT:");
-      console.log("Order ID:", order._id);
-      console.log("Order Total: ₹" + order.totalPrice);
-    } else {
-      console.log("\nℹ️  ORDER ALREADY EXISTS FOR THIS PAYMENT:");
-      console.log("Order ID:", order._id);
-      console.log("Order Total: ₹" + order.totalPrice);
+      
+      order = await minimalOrder.save();
+      console.log("✅ Created minimal order as fallback");
     }
 
-    await order.populate('user', 'name email');
-    
-    console.log("\n" + "=".repeat(70));
-    console.log("✅ PAYMENT VERIFICATION COMPLETE");
-    console.log("=".repeat(70));
+    // 🎯 POPULATE USER DATA
+    try {
+      await order.populate('user', 'name email');
+      console.log("✅ User data populated");
+    } catch (populateError) {
+      console.error("User population error:", populateError.message);
+      // Continue without populated user
+    }
 
+    console.log("\n" + "=".repeat(80));
+    console.log("✅ PAYMENT VERIFICATION COMPLETE");
+    console.log("=".repeat(80));
+
+    // 🎯 SUCCESS RESPONSE
     res.json({ 
       success: true, 
+      message: 'Payment verified and order created successfully',
       order: {
         _id: order._id,
+        orderNumber: order.orderNumber || `ORD-${order._id}`,
         totalPrice: order.totalPrice,
         isPaid: order.isPaid,
         paidAt: order.paidAt,
-        paymentResult: order.paymentResult,
+        orderStatus: order.orderStatus,
+        user: order.user || { name: req.user.name, email: req.user.email },
         orderItems: order.orderItems.map(item => ({
           name: item.name,
           price: item.price,
-          quantity: item.quantity
-        }))
+          quantity: item.quantity,
+          total: item.price * item.quantity
+        })),
+        shippingAddress: order.shippingAddress,
+        paymentMethod: order.paymentMethod,
+        paymentResult: order.paymentResult
       }
     });
 
   } catch (err) {
-    console.error("\n❌ VERIFY ERROR:");
-    console.error("=".repeat(70));
+    console.error("\n❌ PAYMENT VERIFICATION ERROR:");
+    console.error("=".repeat(80));
     console.error("Error message:", err.message);
     console.error("Error stack:", err.stack);
     console.error("Session ID:", req.params.sessionId);
-    console.error("=".repeat(70));
+    console.error("User ID:", req.user?._id);
+    console.error("Timestamp:", new Date().toISOString());
+    console.error("=".repeat(80));
     
-    res.status(500).json({ 
+    // 🎯 USER-FRIENDLY ERROR RESPONSE
+    let errorMessage = "Payment verification failed";
+    let statusCode = 500;
+    
+    if (err.message.includes('No such session')) {
+      errorMessage = "Payment session expired or not found. Please try the payment again.";
+      statusCode = 404;
+    } else if (err.message.includes('Authentication')) {
+      errorMessage = "Authentication failed. Please login again.";
+      statusCode = 401;
+    } else if (err.message.includes('Stripe')) {
+      errorMessage = "Payment gateway error. Please contact support.";
+    }
+    
+    res.status(statusCode).json({ 
       success: false, 
-      message: "Payment verification failed",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      debug: {
+        errorType: err.name,
+        sessionId: req.params.sessionId,
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
 
-// DEBUG: Check what's being sent to payment
+// 🎯 DEBUG: Check what's being sent to payment
 router.post("/debug-payload", protect, async (req, res) => {
   try {
     console.log("\n🔍 PAYMENT DEBUG ENDPOINT");
@@ -622,6 +772,45 @@ router.post("/debug-payload", protect, async (req, res) => {
   } catch (err) {
     console.error("Debug error:", err);
     res.status(500).json({ success: false, message: "Debug error" });
+  }
+});
+
+// 🎯 ADD A SIMPLE HEALTH CHECK ENDPOINT
+router.get("/health", (req, res) => {
+  console.log("🩺 Payment endpoint health check");
+  res.json({ 
+    success: true, 
+    message: "Payment endpoint is working",
+    timestamp: new Date().toISOString(),
+    stripe: process.env.STRIPE_SECRET_KEY ? "Configured" : "Not configured"
+  });
+});
+
+// 🎯 TEST ENDPOINT FOR FRONTEND
+router.post("/test-verify", protect, async (req, res) => {
+  try {
+    console.log("\n🧪 TEST VERIFICATION ENDPOINT");
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: "Session ID required" });
+    }
+    
+    // Simulate a successful verification
+    res.json({
+      success: true,
+      message: "Test verification successful",
+      testData: {
+        sessionId,
+        amount: 5664,
+        status: "paid",
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+  } catch (err) {
+    console.error("Test verification error:", err);
+    res.status(500).json({ success: false, message: "Test failed" });
   }
 });
 
