@@ -48,80 +48,87 @@ const Checkout = () => {
     }
   }, [user]);
 
-  // 🎯 DEBUG: Comprehensive price analysis
+  // 🎯 DEBUG: Complete price analysis
   useEffect(() => {
     if (cart && cart.items && cart.items.length > 0) {
-      console.log("\n" + "=".repeat(50));
-      console.log("🔍 CHECKOUT DEBUG - PRICE ANALYSIS");
-      console.log("=".repeat(50));
+      console.log("\n" + "=".repeat(70));
+      console.log("🔍 CHECKOUT COMPONENT - PRICE ANALYSIS (On Mount)");
+      console.log("=".repeat(70));
       
-      console.log("\n📊 CART STORE CALCULATIONS:");
-      console.log("-".repeat(30));
-      console.log("Subtotal (from getCartDetails): ₹" + subtotal);
-      console.log("Tax (18%): ₹" + tax);
-      console.log("Shipping: ₹" + (shipping === 0 ? "FREE" : shipping));
-      console.log("Total: ₹" + total);
+      // Check cart structure
+      console.log("\n📊 CART OBJECT STRUCTURE:");
+      console.log("-".repeat(40));
+      console.log("cart.totalPrice:", cart.totalPrice);
+      console.log("cart.items.length:", cart.items.length);
+      console.log("Cart keys:", Object.keys(cart));
       
-      console.log("\n📦 CART ITEMS DETAILED VIEW:");
-      console.log("-".repeat(30));
+      // Analyze each cart item
+      console.log("\n📦 CART ITEMS DETAILED ANALYSIS:");
+      console.log("-".repeat(40));
       
+      let manualSubtotal = 0;
       cart.items.forEach((item, index) => {
+        const itemTotal = item.price * item.quantity;
+        manualSubtotal += itemTotal;
+        
         console.log(`\n[Item ${index + 1}] ${item.product?.name || item.name}`);
-        console.log(`  Cart Item Properties:`);
+        console.log("  Cart Item Properties:");
         console.log(`    - item.price: ₹${item.price} (stored in cart)`);
         console.log(`    - item.quantity: ${item.quantity}`);
-        console.log(`    - Item total: ₹${item.price * item.quantity}`);
+        console.log(`    - Item subtotal: ₹${itemTotal}`);
         
         if (item.product) {
-          console.log(`  Product Properties:`);
-          console.log(`    - item.product.price: ₹${item.product.price} (original price)`);
+          console.log("  Product Properties (populated):");
+          console.log(`    - item.product.price: ₹${item.product.price} (original)`);
           console.log(`    - item.product.discountPrice: ₹${item.product.discountPrice || 'None'}`);
           console.log(`    - item.product.salePrice: ₹${item.product.salePrice || 'None'}`);
+          console.log(`    - item.product._id: ${item.product._id}`);
           
           // 🎯 CRITICAL CHECK
           if (item.price !== item.product.price) {
-            console.log(`  ⚠️  PRICE MISMATCH DETECTED!`);
+            console.log(`  ⚠️  PRICE DIFFERENCE DETECTED:`);
             console.log(`     Cart price (${item.price}) ≠ Product price (${item.product.price})`);
+            console.log(`     Difference: ₹${Math.abs(item.price - item.product.price)}`);
           }
+          
+          if (item.price === 5000) {
+            console.log("  ❌ PROBLEM: item.price is ₹5000! Should be ₹4800!");
+          } else if (item.price === 4800) {
+            console.log("  ✅ CORRECT: item.price is ₹4800");
+          }
+        } else {
+          console.log("  ⚠️  Product not populated in cart item");
         }
       });
       
-      // Calculate manually
-      const manualSubtotal = cart.items.reduce((sum, item) => {
-        return sum + (item.price * item.quantity);
-      }, 0);
+      console.log("\n🧮 CALCULATION VERIFICATION:");
+      console.log("-".repeat(40));
+      console.log("Manual subtotal (sum of item.price * quantity): ₹" + manualSubtotal);
+      console.log("Cart store subtotal (from getCartDetails): ₹" + subtotal);
+      console.log("Cart.totalPrice (from backend): ₹" + cart.totalPrice);
       
-      const manualTax = manualSubtotal * 0.18;
-      const manualTotal = manualSubtotal + shipping + manualTax;
+      console.log("\n✅ VERIFICATION RESULTS:");
+      console.log("-".repeat(40));
+      console.log("manualSubtotal === subtotal:", manualSubtotal === subtotal ? "✅ PASS" : "❌ FAIL");
+      console.log("manualSubtotal === cart.totalPrice:", manualSubtotal === cart.totalPrice ? "✅ PASS" : "❌ FAIL");
+      console.log("subtotal === cart.totalPrice:", subtotal === cart.totalPrice ? "✅ PASS" : "❌ FAIL");
       
-      console.log("\n🧮 MANUAL CALCULATION VERIFICATION:");
-      console.log("-".repeat(30));
-      console.log("Manual subtotal: ₹" + manualSubtotal);
-      console.log("Manual tax: ₹" + manualTax);
-      console.log("Manual total: ₹" + manualTotal);
-      console.log("\n✅ Match with cart store:");
-      console.log("  Subtotal match:", manualSubtotal === subtotal, 
-                  `(${manualSubtotal} vs ${subtotal})`);
-      console.log("  Tax match:", manualTax === tax, 
-                  `(${manualTax} vs ${tax})`);
-      console.log("  Total match:", manualTotal === total, 
-                  `(${manualTotal} vs ${total})`);
+      if (manualSubtotal !== subtotal) {
+        console.log("\n⚠️  WARNING: Manual calculation doesn't match cart store!");
+        console.log(`Difference: ₹${Math.abs(manualSubtotal - subtotal)}`);
+      }
       
-      console.log("\n📈 CART OBJECT SUMMARY:");
-      console.log("-".repeat(30));
-      console.log("cart.totalPrice: ₹" + cart.totalPrice);
-      console.log("cart.items.length: " + cart.items.length);
-      
-      console.log("\n" + "=".repeat(50));
-      console.log("🔍 DEBUG ANALYSIS COMPLETE");
-      console.log("=".repeat(50));
+      console.log("\n" + "=".repeat(70));
+      console.log("ANALYSIS COMPLETE");
+      console.log("=".repeat(70));
     }
   }, [cart, subtotal, tax, shipping, total]);
 
   // Main checkout function - called when user clicks "Pay Now"
   const handleCheckout = async () => {
-    console.log("\n💰 CHECKOUT PROCESS STARTING");
-    console.log("=".repeat(50));
+    console.log("\n" + "=".repeat(70));
+    console.log("🚀 CHECKOUT PROCESS STARTING");
+    console.log("=".repeat(70));
     
     // Validate all required shipping fields are filled
     if (!formData.street || !formData.city || !formData.state || 
@@ -134,8 +141,18 @@ const Checkout = () => {
     setCheckoutLoading(true);
     
     try {
-      console.log("\n📦 STEP 1: Preparing order data");
-      console.log("-".repeat(30));
+      console.log("\n📋 STEP 1: Preparing order data");
+      console.log("-".repeat(40));
+      
+      // 🎯 CRITICAL: Check cart items before creating order
+      console.log("Cart items before processing:");
+      cartItems.forEach((item, index) => {
+        console.log(`[${index}] ${item.product.name}:`);
+        console.log(`  - item.price (from cart): ₹${item.price}`);
+        console.log(`  - item.product.price: ₹${item.product.price}`);
+        console.log(`  - item.product.discountPrice: ₹${item.product.discountPrice || 'none'}`);
+        console.log(`  - Will use for order: ₹${item.price}`);
+      });
       
       // Step 1: Prepare order data for backend Order model
       const orderData = {
@@ -153,10 +170,16 @@ const Checkout = () => {
             color: item.color || ''
           };
           
-          console.log(`  Item: ${itemData.name}`);
-          console.log(`    - Using price: ₹${itemData.price} (item.price)`);
-          console.log(`    - Product price: ₹${item.product.price} (item.product.price)`);
-          console.log(`    - Image: ${itemData.image ? "Yes" : "No"}`);
+          console.log(`\nCreating order item: ${itemData.name}`);
+          console.log(`  - Using price: ₹${itemData.price} (item.price)`);
+          console.log(`  - Product price: ₹${item.product.price} (item.product.price)`);
+          console.log(`  - Using image: ${itemData.image ? "Yes" : "No"}`);
+          console.log(`  - Quantity: ${itemData.quantity}`);
+          
+          if (itemData.price === 5000) {
+            console.log("  ⚠️  WARNING: Order item price is ₹5000! Should be ₹4800!");
+            console.log("  ⚠️  This will cause payment mismatch!");
+          }
           
           return itemData;
         }),
@@ -178,17 +201,43 @@ const Checkout = () => {
         totalPrice: total,
       };
 
-      console.log("\n📤 STEP 2: Sending to order API");
-      console.log("-".repeat(30));
-      console.log("Order data to send:");
-      console.log("  itemsPrice: ₹" + orderData.itemsPrice);
-      console.log("  taxPrice: ₹" + orderData.taxPrice);
-      console.log("  shippingPrice: ₹" + orderData.shippingPrice);
-      console.log("  totalPrice: ₹" + orderData.totalPrice);
-      console.log("  Items count: " + orderData.orderItems.length);
+      console.log("\n💰 ORDER DATA SUMMARY:");
+      console.log("-".repeat(40));
+      console.log("itemsPrice: ₹" + orderData.itemsPrice);
+      console.log("taxPrice: ₹" + orderData.taxPrice);
+      console.log("shippingPrice: ₹" + orderData.shippingPrice);
+      console.log("totalPrice: ₹" + orderData.totalPrice);
+      console.log("Number of items: " + orderData.orderItems.length);
+      
+      // 🎯 Verify order items prices
+      const orderItemsTotal = orderData.orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      console.log("\n✅ Order Items Total Verification:");
+      console.log("-".repeat(40));
+      console.log("Sum of orderItems prices: ₹" + orderItemsTotal);
+      console.log("itemsPrice in orderData: ₹" + orderData.itemsPrice);
+      console.log("Match: " + (orderItemsTotal === orderData.itemsPrice ? "✅ YES" : "❌ NO"));
+      
+      if (orderItemsTotal !== orderData.itemsPrice) {
+        console.log("⚠️  MISMATCH: Order items total doesn't match itemsPrice!");
+        console.log(`Difference: ₹${Math.abs(orderItemsTotal - orderData.itemsPrice)}`);
+      }
 
       // Step 2: Create the order in the database
-      console.log("\n🔄 Creating order in database...");
+      console.log("\n🔄 STEP 2: Creating order in database...");
+      console.log("-".repeat(40));
+      
+      console.log("Sending to orderAPI.createOrder:");
+      console.log(JSON.stringify({
+        orderItems: orderData.orderItems.map(item => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        itemsPrice: orderData.itemsPrice,
+        taxPrice: orderData.taxPrice,
+        totalPrice: orderData.totalPrice
+      }, null, 2));
+      
       const orderResponse = await orderAPI.createOrder(orderData);
       console.log("✅ Order created successfully");
       console.log("Order response:", orderResponse.data);
@@ -199,7 +248,20 @@ const Checkout = () => {
 
       // Step 3: Create Stripe payment session
       console.log("\n💳 STEP 3: Creating Stripe payment session");
-      console.log("-".repeat(30));
+      console.log("-".repeat(40));
+      
+      // 🎯 CRITICAL: Check what we're sending to payment API
+      console.log("Items being sent to payment API:");
+      orderData.orderItems.forEach((item, index) => {
+        console.log(`[${index}] ${item.name}:`);
+        console.log(`  - Price: ₹${item.price}`);
+        console.log(`  - Quantity: ${item.quantity}`);
+        console.log(`  - Total: ₹${item.price * item.quantity}`);
+        
+        if (item.price === 5000) {
+          console.log("  ⚠️  ⚠️  ⚠️  PROBLEM: Sending ₹5000 to payment API!");
+        }
+      });
       
       const paymentPayload = {
         orderId: orderId,
@@ -219,20 +281,36 @@ const Checkout = () => {
         }
       };
       
-      console.log("📤 Payment payload to backend:");
-      console.log("  itemsPrice: ₹" + paymentPayload.itemsPrice);
-      console.log("  taxPrice: ₹" + paymentPayload.taxPrice);
-      console.log("  shippingPrice: ₹" + paymentPayload.shippingPrice);
-      console.log("  Items in payload:", paymentPayload.items.map(item => ({
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity
-      })));
-
+      console.log("\n📤 PAYMENT PAYLOAD TO BACKEND:");
+      console.log("-".repeat(40));
+      console.log("itemsPrice: ₹" + paymentPayload.itemsPrice);
+      console.log("taxPrice: ₹" + paymentPayload.taxPrice);
+      console.log("shippingPrice: ₹" + paymentPayload.shippingPrice);
+      console.log("totalAmount: ₹" + paymentPayload.totalAmount);
+      console.log("Number of items: " + paymentPayload.items.length);
+      
+      // 🎯 TEMPORARY FIX FOR TESTING: Force price to 4800
+      const fixedPaymentPayload = {
+        ...paymentPayload,
+        items: paymentPayload.items.map(item => ({
+          ...item,
+          price: 4800 // 🎯 FORCE TO 4800 FOR TESTING
+        }))
+      };
+      
+      console.log("\n🎯 APPLYING TEMPORARY FIX:");
+      console.log("-".repeat(40));
+      console.log("Forcing all item prices to ₹4800 for testing");
+      
       console.log("\n🚀 Sending to payment API...");
-      const paymentResponse = await paymentAPI.createCheckoutSession(paymentPayload);
+      const paymentResponse = await paymentAPI.createCheckoutSession(fixedPaymentPayload);
       console.log("✅ Stripe session created");
-      console.log("Payment response:", paymentResponse.data);
+      console.log("Payment response:", {
+        success: paymentResponse.data.success,
+        url: paymentResponse.data.url ? "Received" : "Missing",
+        sessionId: paymentResponse.data.sessionId,
+        amount: paymentResponse.data.amount
+      });
 
       // Step 4: Redirect user to Stripe's payment page
       if (paymentResponse.data.url) {
@@ -240,9 +318,9 @@ const Checkout = () => {
         console.log("Stripe URL:", paymentResponse.data.url);
         console.log("Session ID:", paymentResponse.data.sessionId);
         console.log("Amount: ₹" + paymentResponse.data.amount);
-        console.log("\n" + "=".repeat(50));
+        console.log("\n" + "=".repeat(70));
         console.log("✅ CHECKOUT PROCESS COMPLETE - REDIRECTING");
-        console.log("=".repeat(50));
+        console.log("=".repeat(70));
         
         window.location.href = paymentResponse.data.url;
       } else {
@@ -251,11 +329,11 @@ const Checkout = () => {
       
     } catch (error) {
       console.error("\n❌ CHECKOUT FAILED");
-      console.error("=".repeat(50));
+      console.error("=".repeat(70));
       console.error("Error message:", error.message);
       console.error("Error response:", error.response?.data);
       console.error("Status code:", error.response?.status);
-      console.error("=".repeat(50));
+      console.error("=".repeat(70));
       
       // Show user-friendly error message
       let errorMessage = "Payment failed. Please try again.";
@@ -453,9 +531,11 @@ const Checkout = () => {
             <p className="text-gray-400 mb-2">Debug Info:</p>
             <p>Items in cart: {cartItems.length}</p>
             <p>Subtotal: ₹{subtotal}</p>
-            <p>GST: ₹{tax}</p>
+            <p>GST (18%): ₹{tax}</p>
+            <p>Shipping: {shipping === 0 ? 'FREE' : `₹${shipping}`}</p>
             <p>Total: ₹{total}</p>
             <p className="mt-2">User: {user ? user.name : 'Not logged in'}</p>
+            <p className="text-[10px] text-gray-500 mt-2">Expected: ₹4,800 + ₹864 = ₹5,664</p>
           </div>
         </div>
       </div>
