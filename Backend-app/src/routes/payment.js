@@ -7,18 +7,36 @@ const Order = require("../models/Order");
 // CREATE SESSION - Fixed to use prices from frontend
 router.post("/create-checkout-session", protect, async (req, res) => {
   try {
-    console.log("🔍 Received payment request:", {
-      hasItems: !!req.body.items,
-      itemCount: req.body.items?.length,
-      hasShippingInfo: !!req.body.shippingInfo,
-      hasPrices: {
-        itemsPrice: req.body.itemsPrice,
-        taxPrice: req.body.taxPrice,
-        shippingPrice: req.body.shippingPrice
-      }
-    });
-
+    // 🎯 EXTENSIVE DEBUGGING
+    console.log("=".repeat(50));
+    console.log("🔍 PAYMENT REQUEST DEBUG START");
+    console.log("=".repeat(50));
+    
+    console.log("📦 FULL REQUEST BODY:", JSON.stringify(req.body, null, 2));
+    
     const { items, shippingInfo, orderId, itemsPrice, taxPrice, shippingPrice } = req.body;
+
+    // 🎯 DEBUG 1: Check what frontend sent
+    console.log("\n🎯 DEBUG 1: Frontend Data Received");
+    console.log("-".repeat(30));
+    console.log("itemsPrice (from frontend):", itemsPrice);
+    console.log("taxPrice (from frontend):", taxPrice);
+    console.log("shippingPrice (from frontend):", shippingPrice);
+    
+    if (items && items.length > 0) {
+      console.log("\n📋 Items received:");
+      items.forEach((item, index) => {
+        console.log(`  [${index}] ${item.name}`);
+        console.log(`     Price: ₹${item.price}`);
+        console.log(`     Quantity: ${item.quantity}`);
+        console.log(`     Total: ₹${item.price * item.quantity}`);
+        
+        // 🎯 CRITICAL: Check if price matches what we expect
+        if (item.price === 5000) {
+          console.log("     ⚠️  WARNING: Item price is ₹5000! Should be ₹4800!");
+        }
+      });
+    }
 
     // Validate required data
     if (!items || items.length === 0) {
@@ -29,7 +47,6 @@ router.post("/create-checkout-session", protect, async (req, res) => {
     }
 
     // 🛠️ FIX: Use prices from frontend if provided, otherwise calculate
-    // This ensures Stripe matches exactly what user sees in cart
     const finalItemsPrice = itemsPrice !== undefined ? itemsPrice : 
       items.reduce((total, item) => total + (item.price * item.quantity), 0);
     
@@ -39,38 +56,53 @@ router.post("/create-checkout-session", protect, async (req, res) => {
     const finalShippingPrice = shippingPrice !== undefined ? shippingPrice : 
       (finalItemsPrice > 1000 ? 0 : 50);
 
-    console.log("💰 Price Agreement Check:", {
-      frontendSent: { itemsPrice, taxPrice, shippingPrice },
-      backendUsing: { finalItemsPrice, finalTaxPrice, finalShippingPrice },
-      total: finalItemsPrice + finalTaxPrice + finalShippingPrice
-    });
-
-    // 🛠️ FIX: Verify item prices match frontend calculation
+    // 🎯 DEBUG 2: Price calculations
+    console.log("\n🎯 DEBUG 2: Price Calculations");
+    console.log("-".repeat(30));
+    console.log("Final Items Price:", finalItemsPrice);
+    console.log("Final Tax Price:", finalTaxPrice);
+    console.log("Final Shipping Price:", finalShippingPrice);
+    console.log("Final Total:", finalItemsPrice + finalTaxPrice + finalShippingPrice);
+    
+    // 🎯 DEBUG 3: Verify calculations
+    console.log("\n🎯 DEBUG 3: Verification Checks");
+    console.log("-".repeat(30));
+    
     const calculatedItemsPrice = items.reduce((total, item) => {
       const price = Number(item.price) || 0;
       const quantity = Number(item.quantity) || 1;
       return total + (price * quantity);
     }, 0);
+    
+    console.log("Sum of item prices:", calculatedItemsPrice);
+    console.log("Frontend sent itemsPrice:", itemsPrice);
+    console.log("Match?", itemsPrice === calculatedItemsPrice);
+    
+    if (itemsPrice !== calculatedItemsPrice) {
+      console.log("❌ MISMATCH DETECTED!");
+      console.log("Difference:", itemsPrice - calculatedItemsPrice);
+    }
 
-    console.log("📊 Item Price Verification:", {
-      frontendItemsPrice: itemsPrice,
-      backendCalculation: calculatedItemsPrice,
-      match: itemsPrice === calculatedItemsPrice,
-      items: items.map(item => ({
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        itemTotal: item.price * item.quantity
-      }))
-    });
+    // 🎯 Check GST calculation
+    const expectedGST = Math.round(calculatedItemsPrice * 0.18);
+    console.log("Expected GST (18% of items):", expectedGST);
+    console.log("Received GST:", taxPrice);
+    console.log("GST Match?", taxPrice === expectedGST);
+    
+    if (taxPrice !== expectedGST) {
+      console.log("❌ GST MISMATCH!");
+      console.log("GST calculated on:", taxPrice / 0.18, "(should be", calculatedItemsPrice, ")");
+    }
 
     // Create line items for Stripe
+    console.log("\n🎯 DEBUG 4: Creating Stripe Line Items");
+    console.log("-".repeat(30));
+    
     const lineItems = items.map((item) => ({
       price_data: {
         currency: "inr",
         product_data: { 
           name: item.name,
-          // Add image if available
           images: item.image ? [item.image] : []
         },
         unit_amount: Math.round(item.price * 100), // Convert to paise
@@ -78,39 +110,45 @@ router.post("/create-checkout-session", protect, async (req, res) => {
       quantity: item.quantity,
     }));
 
-    // 🛠️ FIX: Add tax using the exact amount from frontend
+    console.log("Product line items created:", lineItems.length);
+    
+    // Add tax using the exact amount from frontend
     if (finalTaxPrice > 0) {
       lineItems.push({
         price_data: {
           currency: "inr",
           product_data: { name: "GST (18%)" },
-          unit_amount: Math.round(finalTaxPrice * 100), // Use finalTaxPrice
+          unit_amount: Math.round(finalTaxPrice * 100),
         },
         quantity: 1,
       });
+      console.log("Added GST line item: ₹" + finalTaxPrice);
     }
 
-    // 🛠️ FIX: Add shipping using the exact amount from frontend
+    // Add shipping using the exact amount from frontend
     if (finalShippingPrice > 0) {
       lineItems.push({
         price_data: {
           currency: "inr",
           product_data: { name: "Shipping Charges" },
-          unit_amount: Math.round(finalShippingPrice * 100), // Use finalShippingPrice
+          unit_amount: Math.round(finalShippingPrice * 100),
         },
         quantity: 1,
       });
+      console.log("Added shipping line item: ₹" + finalShippingPrice);
     }
 
-    console.log("🛒 Final Stripe Line Items:", {
-      itemCount: lineItems.length,
-      productItems: items.length,
-      hasTax: finalTaxPrice > 0,
-      hasShipping: finalShippingPrice > 0,
-      totalAmount: (finalItemsPrice + finalTaxPrice + finalShippingPrice).toFixed(2)
-    });
+    console.log("\n💰 Final Price Breakdown:");
+    console.log("-".repeat(30));
+    console.log("Subtotal: ₹" + finalItemsPrice);
+    console.log("GST: ₹" + finalTaxPrice);
+    console.log("Shipping: ₹" + finalShippingPrice);
+    console.log("Total: ₹" + (finalItemsPrice + finalTaxPrice + finalShippingPrice));
 
     // Create Stripe checkout session
+    console.log("\n🎯 DEBUG 5: Creating Stripe Session");
+    console.log("-".repeat(30));
+    
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -121,26 +159,31 @@ router.post("/create-checkout-session", protect, async (req, res) => {
       metadata: {
         userId: req.user._id.toString(),
         orderId: orderId || 'unknown',
-        // Store shipping info
         shippingAddress: shippingInfo?.address || 'Not provided',
         city: shippingInfo?.city || 'Not provided',
         phone: shippingInfo?.phone || 'Not provided',
         zip: shippingInfo?.zipCode || 'Not provided',
         state: shippingInfo?.state || 'Not provided',
         country: shippingInfo?.country || 'India',
-        // 🛠️ FIX: Store the exact prices used
+        // Store exact prices for verification
         itemsPrice: finalItemsPrice.toString(),
         taxPrice: finalTaxPrice.toString(),
         shippingPrice: finalShippingPrice.toString(),
-        totalPrice: (finalItemsPrice + finalTaxPrice + finalShippingPrice).toString()
+        totalPrice: (finalItemsPrice + finalTaxPrice + finalShippingPrice).toString(),
+        // Debug info
+        debug_itemCount: items.length.toString(),
+        debug_firstItemPrice: items[0]?.price?.toString() || 'none'
       },
     });
 
-    console.log("✅ Stripe session created successfully:", {
-      sessionId: session.id,
-      amountTotal: session.amount_total / 100,
-      url: session.url ? 'Yes' : 'No'
-    });
+    console.log("\n✅ Stripe Session Created Successfully");
+    console.log("-".repeat(30));
+    console.log("Session ID:", session.id);
+    console.log("Amount Total: ₹" + (session.amount_total / 100));
+    console.log("Stripe URL:", session.url ? "Generated" : "Missing");
+    console.log("=".repeat(50));
+    console.log("🔍 PAYMENT REQUEST DEBUG END");
+    console.log("=".repeat(50));
 
     res.json({ 
       success: true, 
@@ -150,16 +193,18 @@ router.post("/create-checkout-session", protect, async (req, res) => {
     });
     
   } catch (err) {
-    console.error("❌ STRIPE SESSION CREATION ERROR:", {
-      message: err.message,
-      type: err.type,
-      code: err.code,
-      stripeError: err.raw ? {
-        code: err.raw.code,
-        message: err.raw.message,
-        param: err.raw.param
-      } : null
-    });
+    console.error("\n❌ STRIPE SESSION CREATION ERROR");
+    console.error("=".repeat(50));
+    console.error("Error Message:", err.message);
+    console.error("Error Type:", err.type);
+    console.error("Error Code:", err.code);
+    
+    if (err.raw) {
+      console.error("Stripe Raw Error:");
+      console.error("  Code:", err.raw.code);
+      console.error("  Message:", err.raw.message);
+      console.error("  Param:", err.raw.param);
+    }
     
     // Provide helpful error messages
     let userMessage = "Session Creation Failed";
@@ -182,6 +227,8 @@ router.post("/create-checkout-session", protect, async (req, res) => {
 // VERIFY SESSION - Updated to handle the new price structure
 router.get("/verify/:sessionId", protect, async (req, res) => {
   try {
+    console.log("\n🔍 VERIFYING PAYMENT SESSION:", req.params.sessionId);
+    
     const { sessionId } = req.params;
     
     // Retrieve session and expand line_items
@@ -189,6 +236,9 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
       expand: ['line_items']
     });
 
+    console.log("Session Status:", session.payment_status);
+    console.log("Amount Paid: ₹" + (session.amount_total / 100));
+    
     if (session.payment_status !== 'paid') {
       return res.status(400).json({ 
         success: false, 
@@ -200,8 +250,13 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
     
     if (!order) {
       const meta = session.metadata;
+      
+      console.log("\n📦 Creating Order from Stripe Metadata:");
+      console.log("Items Price from metadata:", meta.itemsPrice);
+      console.log("Tax Price from metadata:", meta.taxPrice);
+      console.log("Shipping Price from metadata:", meta.shippingPrice);
+      console.log("Total Price from metadata:", meta.totalPrice);
 
-      // 🛠️ FIX: Use prices from metadata (which now match frontend)
       order = new Order({
         user: meta.userId,
         orderItems: session.line_items.data
@@ -227,7 +282,6 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
           status: 'paid',
           email_address: session.customer_email 
         },
-        // 🛠️ FIX: Use prices from metadata
         itemsPrice: Number(meta.itemsPrice) || 0,
         taxPrice: Number(meta.taxPrice) || 0,
         shippingPrice: Number(meta.shippingPrice) || 0,
@@ -237,13 +291,14 @@ router.get("/verify/:sessionId", protect, async (req, res) => {
       });
 
       await order.save();
+      console.log("✅ Order created successfully");
     }
 
     await order.populate('user', 'name email');
     res.json({ success: true, order });
 
   } catch (err) {
-    console.error("VERIFY ERROR:", err.message);
+    console.error("\n❌ VERIFY ERROR:", err.message);
     res.status(500).json({ 
       success: false, 
       message: "Payment verification failed",
